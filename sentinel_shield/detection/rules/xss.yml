@@ -1,0 +1,114 @@
+attack_type: xss
+description: "Cross-Site Scripting detection patterns"
+severity: high
+
+rules:
+  - id: XSS-001
+    name: "Script Tag Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, headers, cookies]
+    patterns:
+      - "<script[^>]*>[\\s\\S]*?<\\/script>"
+      - "<script[^>]*>.*"
+      - ".*<\\/script>"
+    action: block
+
+  - id: XSS-002
+    name: "Event Handler Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.9
+    locations: [query, body, headers, cookies]
+    patterns:
+      - "\\bon\\w+\\s*=\\s*['\"][^'\"]*['\"]"
+      - "\\bonerror\\s*="
+      - "\\bonload\\s*="
+      - "\\bonclick\\s*="
+      - "\\bonmouseover\\s*="
+      - "\\bonfocus\\s*="
+      - "\\bonblur\\s*="
+      - "\\bonsubmit\\s*="
+      - "\\bonchange\\s*="
+    action: block
+
+  - id: XSS-003
+    name: "JavaScript URI Scheme"
+    severity: high
+    severity_weight: 0.9
+    confidence: 0.9
+    locations: [query, body, headers, cookies]
+    patterns:
+      - "javascript\\s*:"
+      - "vbscript\\s*:"
+      - "data\\s*:\\s*text\\/html"
+      - "data\\s*:\\s*application\\/x-javascript"
+    action: block
+
+  - id: XSS-004
+    name: "HTML Attribute Injection"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, body]
+    patterns:
+      - "src\\s*=\\s*['\"]\\s*javascript"
+      - "href\\s*=\\s*['\"]\\s*javascript"
+      - "src\\s*=\\s*['\"]\\s*data:"
+      - "\\\\x3Cscript"
+      - "\\\\x3C\\/script"
+    action: block
+
+  - id: XSS-005
+    name: "Encoded XSS Payloads"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.8
+    locations: [query, body]
+    patterns:
+      - "%3Cscript"
+      - "%3C%2Fscript"
+      - "&lt;script"
+      - "&#60;script"
+      - "\\u003Cscript"
+    action: block
+
+  - id: XSS-006
+    name: "Template Injection"
+    severity: high
+    severity_weight: 0.7
+    confidence: 0.75
+    locations: [query, body, headers]
+    patterns:
+      - "\\{\\{.*\\}\\}"
+      - "\\$\\{.*\\}"
+      - "<%\\s*="
+      - "#\\{.*\\}"
+    action: block
+
+  - id: XSS-007
+    name: "DOM-based XSS"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.8
+    locations: [query, body, headers]
+    patterns:
+      - "document\\.(write|writeln)\\s*\\("
+      - "eval\\s*\\(\\s*[\\s\\S]*request"
+      - "innerHTML\\s*="
+      - "window\\.location\\s*="
+    action: block
+
+  - id: XSS-008
+    name: "Stylesheet Injection"
+    severity: medium
+    severity_weight: 0.6
+    confidence: 0.7
+    locations: [query, body, headers]
+    patterns:
+      - "expression\\s*\\(\\s*[^)]*"
+      - "-moz-binding\\s*:"
+      - "behavior\\s*:"
+      - "@import\\s+url"
+    action: block

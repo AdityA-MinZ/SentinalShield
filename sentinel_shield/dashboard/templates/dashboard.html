@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelShield Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1923; color: #e0e0e0; padding: 20px;
+        }
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 24px; padding-bottom: 16px;
+            border-bottom: 1px solid #1e2d3d;
+        }
+        .header h1 { font-size: 24px; color: #00e676; }
+        .header .subtitle { color: #78909c; font-size: 14px; }
+        .header .mode {
+            padding: 6px 14px; border-radius: 12px; font-size: 13px;
+            font-weight: 600; text-transform: uppercase;
+        }
+        .mode.block { background: #d32f2f33; color: #ef5350; border: 1px solid #ef5350; }
+        .mode.log { background: #f9a82533; color: #ffd54f; border: 1px solid #ffd54f; }
+        .stats-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #1a2a3a; border-radius: 10px; padding: 20px;
+            border: 1px solid #263548;
+        }
+        .stat-card .label { font-size: 12px; color: #78909c; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; }
+        .stat-card .value.green { color: #00e676; }
+        .stat-card .value.red { color: #ef5350; }
+        .stat-card .value.amber { color: #ffd54f; }
+        .stat-card .value.blue { color: #42a5f5; }
+        .charts-row {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; margin-bottom: 24px;
+        }
+        .chart-card {
+            background: #1a2a3a; border-radius: 10px; padding: 20px;
+            border: 1px solid #263548;
+        }
+        .chart-card h3 { font-size: 14px; color: #78909c; margin-bottom: 16px; text-transform: uppercase; }
+        .chart-container { position: relative; height: 250px; }
+        .bottom-row {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .card {
+            background: #1a2a3a; border-radius: 10px; padding: 20px;
+            border: 1px solid #263548;
+        }
+        .card h3 { font-size: 14px; color: #78909c; margin-bottom: 16px; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; color: #78909c; padding: 8px 4px; border-bottom: 1px solid #263548; }
+        td { padding: 8px 4px; border-bottom: 1px solid #1e2d3d; }
+        .event-log { max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .event-log .entry { padding: 6px 0; border-bottom: 1px solid #1e2d3d; }
+        .event-log .timestamp { color: #546e7a; }
+        .event-log .level { font-weight: 600; }
+        .event-log .level.WARNING { color: #ffd54f; }
+        .event-log .level.ERROR { color: #ef5350; }
+        .event-log .level.INFO { color: #00e676; }
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 8px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge.sqli { background: #d32f2f33; color: #ef5350; }
+        .badge.xss { background: #f9a82533; color: #ffd54f; }
+        .badge.lfi { background: #7b1fa233; color: #ce93d8; }
+        .badge.ssrf { background: #1565c033; color: #64b5f6; }
+        .badge.path_traversal { background: #e6510033; color: #ffab91; }
+        .badge.file_upload { background: #2e7d3233; color: #81c784; }
+        @media (max-width: 900px) {
+            .charts-row, .bottom-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>SentinelShield</h1>
+            <div class="subtitle">Advanced Intrusion Detection & Web Protection — Live Dashboard</div>
+        </div>
+        <div>
+            <span class="mode" id="detectionMode">block</span>
+        </div>
+    </div>
+
+    <div class="stats-row" id="statsRow">
+        <div class="stat-card">
+            <div class="label">Total Requests</div>
+            <div class="value blue" id="totalRequests">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Attacks Blocked</div>
+            <div class="value red" id="totalAttacks">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Requests / Sec</div>
+            <div class="value amber" id="requestsPerSec">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Active Rules</div>
+            <div class="value green" id="ruleCount">0</div>
+        </div>
+    </div>
+
+    <div class="charts-row">
+        <div class="chart-card">
+            <h3>Attack Distribution by Type</h3>
+            <div class="chart-container">
+                <canvas id="attackChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>Attack Timeline (last 30 minutes)</h3>
+            <div class="chart-container">
+                <canvas id="timelineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-row">
+        <div class="card">
+            <h3>Recent Security Events</h3>
+            <div class="event-log" id="eventLog">
+                <div style="color: #546e7a;">Waiting for events...</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Top Attack Paths</h3>
+            <table>
+                <thead><tr><th>Path</th><th>Count</th></tr></thead>
+                <tbody id="topPathsBody">
+                    <tr><td colspan="2" style="color:#546e7a;">No data yet</td></tr>
+                </tbody>
+            </table>
+            <h3 style="margin-top:20px;">Status Codes</h3>
+            <table>
+                <thead><tr><th>Code</th><th>Count</th></tr></thead>
+                <tbody id="statusCodesBody">
+                    <tr><td colspan="2" style="color:#546e7a;">No data yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let attackChart, timelineChart;
+
+        async function fetchJSON(url) {
+            try {
+                const r = await fetch(url);
+                return await r.json();
+            } catch { return null; }
+        }
+
+        function getTypeBadge(type) {
+            const cls = type.toLowerCase().replace(/[^a-z_]/g, '');
+            return `<span class="badge ${cls}">${type}</span>`;
+        }
+
+        function updateStats(data) {
+            document.getElementById('totalRequests').textContent = data.total_requests || 0;
+            document.getElementById('totalAttacks').textContent = data.total_attacks || 0;
+            document.getElementById('requestsPerSec').textContent = (data.requests_per_second || 0).toFixed(2);
+            document.getElementById('ruleCount').textContent = data.rule_count || 0;
+
+            const mode = data.detection_mode || 'log';
+            const modeEl = document.getElementById('detectionMode');
+            modeEl.textContent = mode;
+            modeEl.className = 'mode ' + mode;
+        }
+
+        function updateAttackChart(data) {
+            const counts = data.attack_counts || {};
+            const labels = Object.keys(counts);
+            const values = Object.values(counts);
+            const colors = {
+                sqli: '#ef5350', xss: '#ffd54f', lfi: '#ce93d8',
+                ssrf: '#64b5f6', path_traversal: '#ffab91', file_upload: '#81c784',
+            };
+
+            if (attackChart) { attackChart.destroy(); }
+
+            const ctx = document.getElementById('attackChart').getContext('2d');
+            attackChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(l => l.toUpperCase()),
+                    datasets: [{
+                        label: 'Attacks',
+                        data: values,
+                        backgroundColor: labels.map(l => colors[l.toLowerCase()] || '#78909c'),
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, color: '#78909c' } },
+                        x: { ticks: { color: '#78909c' } }
+                    }
+                }
+            });
+        }
+
+        function updateTimelineChart(data) {
+            const points = data.timeline || [];
+            const labels = points.map(p => { const t = p.time; return t.length > 10 ? t.slice(11, 16) : t; });
+            const values = points.map(p => p.count);
+
+            if (timelineChart) { timelineChart.destroy(); }
+
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            timelineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Blocked/Detected',
+                        data: values,
+                        borderColor: '#ef5350',
+                        backgroundColor: '#ef535033',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 2,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#78909c' } } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, color: '#78909c' } },
+                        x: { ticks: { color: '#78909c', maxTicksLimit: 10 } }
+                    }
+                }
+            });
+        }
+
+        function updateEventLog(data) {
+            const events = data.events || [];
+            const el = document.getElementById('eventLog');
+            if (events.length === 0) {
+                el.innerHTML = '<div style="color:#546e7a;">No security events yet. Run some attacks!</div>';
+                return;
+            }
+            el.innerHTML = events.slice(0, 30).map(e => {
+                const ts = e.timestamp || '';
+                const level = e.level || 'INFO';
+                const event = e.event || '';
+                const msg = e.message || '';
+                const ip = e.client_ip || '';
+                const type = e.attack_type || e.reason_type || '';
+                const rid = e.rule_id || e.reason || '';
+                return `<div class="entry">
+                    <span class="timestamp">${ts}</span>
+                    <span class="level ${level}">[${level}]</span>
+                    ${event ? `<span style="color:#42a5f5;">${event}</span>` : ''}
+                    ${ip ? `<span style="color:#78909c;">${ip}</span>` : ''}
+                    ${type ? getTypeBadge(type) : ''}
+                    <span style="color:#b0bec5;">${escapeHtml(msg)}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function updateTopPaths(data) {
+            const paths = data.top_paths || [];
+            const tbody = document.getElementById('topPathsBody');
+            if (paths.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="color:#546e7a;">No data yet</td></tr>';
+                return;
+            }
+            tbody.innerHTML = paths.map(p =>
+                `<tr><td style="font-family:monospace;">${escapeHtml(p.path)}</td><td>${p.count}</td></tr>`
+            ).join('');
+        }
+
+        function updateStatusCodes(data) {
+            const codes = data.status_code_distribution || {};
+            const tbody = document.getElementById('statusCodesBody');
+            const entries = Object.entries(codes);
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="color:#546e7a;">No data yet</td></tr>';
+                return;
+            }
+            tbody.innerHTML = entries.map(([code, count]) =>
+                `<tr><td>${code}</td><td>${count}</td></tr>`
+            ).join('');
+        }
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        async function refresh() {
+            const [summary, logs, timeline] = await Promise.all([
+                fetchJSON('/api/summary'),
+                fetchJSON('/api/logs'),
+                fetchJSON('/api/attack-timeline'),
+            ]);
+
+            if (summary) {
+                updateStats(summary);
+                updateAttackChart(summary);
+                updateTopPaths(summary);
+                updateStatusCodes(summary);
+            }
+            if (logs) updateEventLog(logs);
+            if (timeline) updateTimelineChart(timeline);
+        }
+
+        refresh();
+        setInterval(refresh, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+attack_type: lfi
+description: "Local File Inclusion detection patterns"
+severity: high
+
+rules:
+  - id: LFI-001
+    name: "Directory Traversal"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.9
+    locations: [query, body, path, cookies]
+    patterns:
+      - "\\.\\.\\/"
+      - "\\.\\.\\\\"
+      - "%2e%2e%2f"
+      - "%2e%2e/"
+      - "\\.\\.%2f"
+      - "%252e%252e%252f"
+      - "..%255c"
+    action: block
+
+  - id: LFI-002
+    name: "System File Access"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, cookies]
+    patterns:
+      - "/etc/passwd"
+      - "/etc/shadow"
+      - "/etc/hosts"
+      - "/etc/issue"
+      - "/etc/crontab"
+      - "/etc/group"
+      - "/etc/sudoers"
+      - "/proc/self/environ"
+      - "/proc/self/fd"
+      - "/proc/self/cmdline"
+      - "/proc/self/status"
+      - "/proc/version"
+    action: block
+
+  - id: LFI-003
+    name: "Log File Access"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, body, cookies]
+    patterns:
+      - "/var/log/"
+      - "/var/log/apache"
+      - "/var/log/nginx"
+      - "/var/log/auth\\.log"
+      - "/var/log/syslog"
+      - "/var/log/messages"
+      - "/var/log/secure"
+    action: block
+
+  - id: LFI-004
+    name: "Wrapper Protocol Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, cookies]
+    patterns:
+      - "php://filter"
+      - "php://input"
+      - "php://stdin"
+      - "expect://"
+      - "file://"
+      - "phar://"
+      - "zip://"
+      - "compress.zlib://"
+      - "compress.bzip2://"
+    action: block
+
+  - id: LFI-005
+    name: "Windows File Access"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, body, cookies]
+    patterns:
+      - "boot\\.ini"
+      - "win\\.ini"
+      - "system32"
+      - "windows\\/system"
+      - "windows\\/repair"
+      - "autoexec\\.bat"
+      - "config\\.sys"
+      - "ntuser\\.dat"
+    action: block
+
+  - id: LFI-006
+    name: "Application File Access"
+    severity: high
+    severity_weight: 0.7
+    confidence: 0.8
+    locations: [query, body, cookies]
+    patterns:
+      - "\\.\\.\\/\\.\\.\\/.*\\.(php|ini|conf|xml|json|env|yml|yaml)"
+      - "wp-config\\.php"
+      - "config\\.php"
+      - "\\.env"
+      - "composer\\.json"
+      - "package\\.json"
+    action: block

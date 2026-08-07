@@ -1,0 +1,69 @@
+attack_type: file_upload
+description: "Malicious File Upload detection patterns"
+severity: high
+
+rules:
+  - id: FU-001
+    name: "Executable File Upload"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.9
+    locations: [body, headers]
+    patterns:
+      - "Content-Disposition.*\\.(exe|dll|so|dylib|bin|msi|scr|cpl)"
+      - "Content-Disposition.*\\.(sh|bash|zsh|fish|ksh|csh)"
+      - "Content-Disposition.*\\.(py|pyc|pyo|pyd|rb|pl|pm|tcl)"
+      - "Content-Disposition.*\\.(jar|war|class|jsp|jspx)"
+    action: block
+
+  - id: FU-002
+    name: "Web Shell Upload"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [body, headers]
+    patterns:
+      - "Content-Disposition.*\\.(php|php3|php4|php5|phtml|pht)"
+      - "Content-Disposition.*\\.(asp|aspx|asa|cer|cdx|ashx)"
+      - "Content-Disposition.*\\.(cfm|cfc|shtml|shtm|cgi)"
+      - "Content-Disposition.*\\.(pl|cgi|fcgi|fpl)"
+    action: block
+
+  - id: FU-003
+    name: "Double Extension Upload"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [body, headers]
+    patterns:
+      - "Content-Disposition.*\\.(php|asp|aspx|jsp)\\..*\\."
+      - "Content-Disposition.*\\.(php|phtml|php3|php4|php5)\\..*\\."
+      - "Content-Disposition.*\\.(php|asp|aspx|jsp)\\.(jpg|png|gif|pdf)"
+      - "Content-Disposition.*\\.(jpg|png|gif|pdf)\\.(php|asp|aspx|jsp)"
+    action: block
+
+  - id: FU-004
+    name: "Hidden File Upload"
+    severity: medium
+    severity_weight: 0.6
+    confidence: 0.75
+    locations: [body, headers]
+    patterns:
+      - "Content-Disposition.*\\.(htaccess|htpasswd|git|svn|DS_Store)"
+      - "Content-Disposition.*\\.(env|config|sql|dump|backup|bak)"
+      - "Content-Disposition.*\\.(swp|swo|swn|~)"
+    action: block
+
+  - id: FU-005
+    name: "Content-Type Mismatch"
+    severity: high
+    severity_weight: 0.7
+    confidence: 0.7
+    locations: [headers]
+    patterns:
+      - "Content-Type\\s*:\\s*text/php"
+      - "Content-Type\\s*:\\s*application/x-httpd-php"
+      - "Content-Type\\s*:\\s*application/x-msdownload"
+      - "Content-Type\\s*:\\s*application/x-shellscript"
+      - "Content-Type\\s*:\\s*application/x-java"
+    action: block

@@ -1,0 +1,133 @@
+attack_type: command_injection
+description: "OS Command Injection detection patterns"
+severity: critical
+
+rules:
+  - id: CMD-001
+    name: "Shell Metacharacter Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, headers, cookies]
+    patterns:
+      - ";\\s*(ls|cat|id|whoami|pwd|uname|hostname|ifconfig|ipconfig|netstat|ps|wget|curl|nc|ncat|socat|bash|sh|zsh|ksh|python|perl|ruby|php|node|ping|nslookup|dig|echo|rm|mv|cp|chmod|chown|mkdir|touch|find|grep|sed|awk|tar|gzip|kill|reboot|shutdown|sudo|su|date|env|who|last|useradd|groupadd)"
+      - "&&\\s*(ls|cat|id|whoami|pwd|uname|hostname|ifconfig|ipconfig|netstat|ps|wget|curl|nc|bash|sh|python|ping|nslookup|echo|rm|chmod|sudo|reboot|shutdown)"
+      - "\\|\\s*(ls|cat|id|whoami|pwd|uname|hostname|ifconfig|ipconfig|netstat|ps|wget|curl|nc|bash|sh|python|perl|php|ping|nslookup|echo|rm|chmod|sudo)"
+      - "\\$\\("
+      - "`[^`]*`"
+    action: block
+
+  - id: CMD-002
+    name: "Encoded or Newline Command Injection"
+    severity: critical
+    severity_weight: 0.9
+    confidence: 0.9
+    locations: [query, body, headers, cookies]
+    patterns:
+      - "%0a\\s*(ls|cat|id|whoami|pwd|uname|hostname|ifconfig|ipconfig|netstat|ps|wget|curl|nc|bash|sh|python|perl|php|ping|nslookup|dig|echo|rm|mv|cp|chmod|chown|sudo|reboot|shutdown|tar|gzip|find|grep|sed|awk)"
+      - "%0d\\s*(ls|cat|id|whoami|pwd|uname|hostname|ifconfig|ipconfig|netstat|ps|wget|curl|nc|bash|sh|python|perl|php|ping|nslookup|dig|echo|rm|mv|cp|chmod|chown|sudo|reboot|shutdown|tar|gzip|find|grep|sed|awk)"
+      - "\\r?\\n\\s*(ls|cat|id|whoami|pwd|uname|hostname|ifconfig|ipconfig|netstat|ps|wget|curl|nc|bash|sh|python|perl|php|ping|nslookup|dig|echo|rm|mv|cp|chmod|chown|sudo|reboot|shutdown|tar|gzip|find|grep|sed|awk)"
+      - "%0a\\s*(/usr)?/bin/\\S+"
+      - "%0d\\s*(/usr)?/bin/\\S+"
+      - "\\r?\\n\\s*(/usr)?/bin/\\S+"
+    action: block
+
+  - id: CMD-003
+    name: "Command Interpreter Invocation"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, cookies]
+    patterns:
+      - "\\b(sh|bash|zsh|ksh|csh)\\s+-[ce]\\b"
+      - "\\bcmd\\s+\\/c\\b"
+      - "cmd\\.exe\\s+\\/c"
+      - "\\bpowershell\\b"
+      - "powershell\\.exe"
+      - "\\/bin\\/(sh|bash|zsh|ksh|csh)"
+      - "\\b(perl|python|ruby|node|php)\\s+-[ce]\\b"
+    action: block
+
+  - id: CMD-004
+    name: "System Command Keywords"
+    severity: high
+    severity_weight: 0.85
+    confidence: 0.9
+    locations: [query, body, cookies]
+    patterns:
+      - "\\bwhoami\\b"
+      - "\\buname\\s+-[aA]\\b"
+      - "\\bifconfig\\b"
+      - "\\bipconfig\\b"
+      - "\\bnetstat\\b"
+      - "\\bwho\\b"
+      - "\\bps\\s+-[aAefux]"
+      - "\\bls\\s+-[aAl]"
+      - "\\bcat\\s+\\/"
+      - "[;&|]\\s*\\bid\\b"
+    action: block
+
+  - id: CMD-005
+    name: "File Manipulation Commands"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, body, cookies]
+    patterns:
+      - "\\brm\\s+-rf"
+      - "\\bchmod\\s+[0-7]{3,}"
+      - "\\bchown\\s+\\S+"
+      - "\\bmkdir\\s+\\S+"
+      - "\\brmdir\\s+\\S+"
+      - "\\bdd\\s+if="
+      - "\\bmv\\s+\\S+\\s+\\S+"
+      - "\\bcp\\s+\\S+\\s+\\S+"
+      - "\\btouch\\s+\\S+"
+    action: block
+
+  - id: CMD-006
+    name: "Network and Exfiltration Tools"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, body, cookies]
+    patterns:
+      - "\\bwget\\s+\\S+"
+      - "\\bcurl\\s+\\S+"
+      - "\\bnc\\s+-[a-zA-Z]"
+      - "\\bncat\\b"
+      - "\\bsocat\\b"
+      - "\\btftp\\b"
+      - "\\bscp\\s+\\S+"
+      - "\\brsync\\s+\\S+"
+      - "\\bftp\\s+\\S+"
+      - "\\bdig\\s+\\S+"
+    action: block
+
+  - id: CMD-007
+    name: "IFS Whitespace Bypass"
+    severity: high
+    severity_weight: 0.9
+    confidence: 0.9
+    locations: [query, body, cookies]
+    patterns:
+      - "\\$\\{IFS\\}"
+      - "\\$IFS\\b"
+      - "\\{IFS\\}"
+      - "\\$\\{IFS[^}]*\\}"
+    action: block
+
+  - id: CMD-008
+    name: "Obfuscated or Piped Command Execution"
+    severity: critical
+    severity_weight: 0.9
+    confidence: 0.9
+    locations: [query, body, cookies]
+    patterns:
+      - "\\|\\s*(base64|b64encode)\\b"
+      - "base64\\s+-d"
+      - "\\becho\\s+\\S+\\s*\\|\\s*(bash|sh)\\b"
+      - "\\bprintf\\s+\\S+\\s*\\|\\s*(bash|sh)\\b"
+      - "\\b(cat|curl|wget)\\s+\\S+\\s*\\|\\s*(bash|sh)\\b"
+      - "\\bxxd\\s+-r\\b"
+    action: block

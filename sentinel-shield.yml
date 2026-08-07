@@ -1,0 +1,34 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 2
+  upstream: "http://localhost:3000"
+
+admin_api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 9090
+
+detection:
+  mode: "block"
+  rules_dir: "rules"
+
+rate_limiter:
+  enabled: true
+  requests_per_minute: 60
+  burst_size: 10
+
+ip_reputation:
+  enabled: true
+  blocklist: []
+  allowlist: ["127.0.0.1", "::1"]
+
+logging:
+  level: "INFO"
+  format: "json"
+  output: "stdout"
+  file: "sentinel-shield.log"
+
+traffic_analyzer:
+  enabled: true
+  window_seconds: 300

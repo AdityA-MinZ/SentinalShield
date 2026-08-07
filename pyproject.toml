@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-shield"
+version = "1.0.0"
+description = "Advanced Intrusion Detection & Web Protection System"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+dependencies = [
+    "pyyaml>=6.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "click>=8.1.0",
+    "aiohttp>=3.8.0",
+    "pydantic>=2.0.0",
+    "starlette>=0.27.0",
+    "flask>=3.0.0",
+]
+
+[project.scripts]
+sentinel-shield = "sentinel_shield.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["sentinel_shield*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

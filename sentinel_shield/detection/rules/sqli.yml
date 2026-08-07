@@ -1,0 +1,108 @@
+attack_type: sqli
+description: "SQL Injection detection patterns"
+severity: critical
+
+rules:
+  - id: SQLI-001
+    name: "Union-based SQL Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, headers, cookies]
+    patterns:
+      - "UNION\\s+(ALL\\s+)?SELECT"
+      - "UNION\\s+(ALL\\s+)?\\s*SELECT.*FROM"
+    action: block
+
+  - id: SQLI-002
+    name: "Boolean-based SQL Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.9
+    locations: [query, body, cookies]
+    patterns:
+      - "'\\s*(OR|AND)\\s+['\"]?\\d+['\"]?\\s*="
+      - "'\\s*(OR|AND)\\s+['\"]?\\w+['\"]?\\s*="
+      - "'\\s*(OR|AND)\\s+\\d+\\s*=\\d+"
+      - "\\bOR\\b\\s+'\\d+'\\s*=\\s*'\\d+'"
+      - "\\bAND\\b\\s+\\d+\\s*=\\s*\\d+"
+    action: block
+
+  - id: SQLI-003
+    name: "Time-based SQL Injection"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.95
+    locations: [query, body, cookies]
+    patterns:
+      - "SLEEP\\s*\\(\\s*\\d+\\s*\\)"
+      - "WAITFOR\\s+DELAY\\s+['\"]\\d+"
+      - "BENCHMARK\\s*\\(\\s*\\d+"
+      - "pg_sleep\\s*\\(\\s*\\d+"
+    action: block
+
+  - id: SQLI-004
+    name: "Error-based SQL Injection"
+    severity: high
+    severity_weight: 0.9
+    confidence: 0.85
+    locations: [query, body, cookies]
+    patterns:
+      - "EXTRACTVALUE\\s*\\("
+      - "UPDATEXML\\s*\\("
+      - "CONVERT\\s*\\(.*INT"
+      - "CAST\\s*\\(.*INT"
+    action: block
+
+  - id: SQLI-005
+    name: "Stacked Queries"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.9
+    locations: [query, body, headers, cookies]
+    patterns:
+      - ";\\s*(DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|EXEC)"
+      - ";\\s*DROP\\s+TABLE"
+      - ";\\s*DELETE\\s+FROM"
+    action: block
+
+  - id: SQLI-006
+    name: "Comment-based SQL Injection"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.8
+    locations: [query, body, cookies]
+    patterns:
+      - "--\\s*$"
+      - "#\\s*$"
+      - "/\\*.*\\*/"
+    action: block
+
+  - id: SQLI-007
+    name: "Inline SQL Injection"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.75
+    locations: [query, body]
+    patterns:
+      - "'.*\\bOR\\b.*'"
+      - "'.*\\bAND\\b.*'"
+      - "\\b1=1\\b"
+      - "\\b1=2\\b"
+      - "'\\s*='\\s*'"
+    action: block
+
+  - id: SQLI-008
+    name: "Information Schema Access"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, body]
+    patterns:
+      - "INFORMATION_SCHEMA"
+      - "sys\\.(tables|columns|objects)"
+      - "sqlite_master"
+      - "mysql\\.(user|db|host)"
+      - "pg_catalog"
+      - "pg_tables"
+    action: block

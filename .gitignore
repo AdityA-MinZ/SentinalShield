@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+
+# Test & tool caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime artifacts
+sentinel-shield.log
+exercise_output_*/
+*.log
+
+# OS
+.DS_Store

@@ -1,0 +1,62 @@
+attack_type: path_traversal
+description: "Path Traversal detection patterns"
+severity: high
+
+rules:
+  - id: PT-001
+    name: "Directory Traversal Sequences"
+    severity: critical
+    severity_weight: 1.0
+    confidence: 0.9
+    locations: [query, path, body, cookies]
+    patterns:
+      - "\\.\\.(\\/|\\\\)"
+      - "%2e%2e%2f"
+      - "%2e%2e\\/"
+      - "\\.\\.%2f"
+      - "%252e%252e%252f"
+      - "..%255c"
+      - "%c0%ae%c0%ae\\/"
+      - "%c0%ae%c0%ae%c0%af"
+    action: block
+
+  - id: PT-002
+    name: "Absolute System Path Access"
+    severity: high
+    severity_weight: 0.9
+    confidence: 0.85
+    locations: [query, path, body]
+    patterns:
+      - "^\\/(etc|proc|var|usr|bin|sbin|boot|sys|home|root|tmp|dev|Windows|windows)(\\/|$)"
+      - "file:\\/\\/\\/\\w"
+      - "\\\\\\\\[\\w-]+\\\\"
+      - "[A-Za-z]:\\\\"
+    action: block
+
+  - id: PT-003
+    name: "Sensitive File Patterns"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.85
+    locations: [query, path, body, cookies]
+    patterns:
+      - "\\.\\./.*\\.(sh|bash|zsh|fish|env|cfg|conf)"
+      - "\\.\\./.*\\.(key|pem|crt|p12|jks|keystore)"
+      - "\\.\\./.*\\.(sql|sqlite|db|mdb|accdb)"
+      - "\\.\\./.*\\.(log|txt|md|rst|bak|swp)"
+      - "\\.\\./.*\\.(yml|yaml|xml|json|toml|ini|cfg)"
+    action: block
+
+  - id: PT-004
+    name: "Encoded Path Traversal"
+    severity: high
+    severity_weight: 0.8
+    confidence: 0.8
+    locations: [query, path, body]
+    patterns:
+      - "%2e%2e\\/.+\\..{2,4}"
+      - "(%2f|\\/)etc(%2f|\\/)passwd"
+      - "(%2f|\\/)var(%2f|\\/)log"
+      - "(%2f|\\/)proc(%2f|\\/)self"
+      - "(%2f|\\/)windows(%2f|\\/)system32"
+    action: block
