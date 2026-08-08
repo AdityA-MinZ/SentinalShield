@@ -1,129 +1,233 @@
 # SentinelShield
 
-Advanced Intrusion Detection & Web Protection System — a rule-based Web Application Firewall (WAF) and Intrusion Detection System (IDS) built as a practical learning project.
+SentinelShield is a small web security project that works as a reverse proxy and a basic Web Application Firewall (WAF).
 
-SentinelShield inspects every HTTP request (URL, query, body, headers, cookies) against 44 attack signatures across 7 categories, enforces IP-based rate limiting, writes structured JSON logs, and visualizes events on a live dashboard.
+I made this project to understand how web requests can be checked before they reach an application. For the demo, I used OWASP Juice Shop as the application behind the proxy.
 
-## Features
+## What it does
 
-- **Rule-based detection** — 44 rules across SQL Injection, XSS, LFI, SSRF, Path Traversal, File Upload, and OS Command Injection
-- **Dual deployment modes** — WSGI middleware to wrap an existing Python app, or a standalone async reverse proxy (`aiohttp`)
-- **Behavior monitoring** — token-bucket rate limiting per IP with configurable thresholds and burst size
-- **IP reputation** — allowlist / blocklist access control, mutable at runtime via the admin API
-- **Structured logging** — JSONL access, block, and detection events for analysis
-- **Live dashboard** — Flask + Chart.js visualization of attack types, timeline, top paths, and status codes
-- **Admin REST API** — FastAPI endpoints for stats, rules, config, IP management, and rule hot-reload
-- **CLI tool** — status, rule listing, report generation, proxy, dashboard, and admin servers
-- **Docker deployment** — drop-in reverse proxy in front of OWASP Juice Shop
+SentinelShield checks incoming HTTP requests and can:
 
-## Architecture
+- Detect common suspicious requests.
+- Block requests that match security rules.
+- Allow normal requests to pass to the application.
+- Apply rate limiting to repeated requests.
+- Record request and security events in JSON logs.
+- Show useful information such as the request IP, category, rule ID, status code, and time.
 
+The current rules cover examples of:
+
+- SQL injection
+- Cross-site scripting (XSS)
+- Local file inclusion and path traversal
+- Server-side request forgery (SSRF)
+- Command injection
+- Suspicious file uploads
+
+This is mainly an educational project and should not be treated as a production WAF without more testing.
+
+## Basic architecture
+
+```text
+Browser or curl
+       |
+       v
+SentinelShield proxy :8080
+       |
+       v
+OWASP Juice Shop :3000
 ```
-   Client ──► SentinelShield ──► Upstream App
-                  │
-   ┌──────────────┼──────────────────────┐
-   │  1. IP Reputation  (allow/block)    │
-   │  2. Rate Limiter    (token bucket)  │
-   │  3. Rules Engine    (44 signatures) │
-   │  4. Traffic Analyzer (sliding window)│
-   │  5. Logger          (JSONL)         │
-   └──────────────┼──────────────────────┘
-                  ▼
-        Dashboard / Admin API / Report
-```
 
-## Quickstart
+The proxy checks the request first. If it looks normal, it forwards the request to Juice Shop. If a rule is matched, it returns a block response instead of forwarding the request.
 
-Requires Python 3.9+.
+## Technologies used
+
+- Python
+- aiohttp
+- Docker and Docker Compose
+- YAML configuration
+- Regular-expression based detection rules
+- JSONL logging
+- OWASP Juice Shop for testing
+
+## Run the project
+
+### Requirements
+
+- Docker Desktop
+- Git
+- A terminal
+
+### Start the containers
+
+Clone the repository and enter the project directory:
 
 ```bash
-# 1. Install
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt -e .
-
-# 2. Check status
-sentinel-shield status
-
-# 3. Run the reverse proxy (upstream = OWASP Juice Shop, or any target)
-sentinel-shield proxy --upstream http://localhost:3000 --port 8080
-
-# 4. In another terminal: exercise the system
-./scripts/test_attacks.sh            # simulated attacks (expect 403/429)
-./scripts/normal_traffic.sh          # baseline legitimate traffic
-./scripts/brute_force.sh             # rate-limit demo
-
-# 5. Inspect results
-sentinel-shield report --format table
-sentinel-shield dashboard --port 9091   # http://localhost:9091
-sentinel-shield admin --port 9090       # admin API at http://localhost:9090
+git clone https://github.com/AdityA-MinZ/SentinalShield.git
+cd SentinalShield
 ```
 
-## CLI Reference
-
-| Command | Description |
-|---|---|
-| `sentinel-shield proxy` | Run the async reverse proxy |
-| `sentinel-shield wrap` | Print WSGI integration instructions |
-| `sentinel-shield admin` | Start the FastAPI admin API |
-| `sentinel-shield dashboard` | Start the Flask dashboard |
-| `sentinel-shield report` | Generate a security summary from the log |
-| `sentinel-shield status` | Show system status |
-| `sentinel-shield rules [RULE_ID]` | List rules or inspect one rule |
-
-## Detection Rules
-
-Rule definitions live in `sentinel_shield/detection/rules/*.yml` and are hot-reloadable:
-
-| Category | Rules | Critical | High | Medium |
-|---|---|---|---|---|
-| SQL Injection | 8 | 5 | 3 | 0 |
-| XSS | 8 | 2 | 5 | 1 |
-| LFI | 6 | 3 | 3 | 0 |
-| SSRF | 5 | 2 | 2 | 1 |
-| Path Traversal | 4 | 1 | 3 | 0 |
-| File Upload | 5 | 2 | 2 | 1 |
-| Command Injection | 8 | 4 | 4 | 0 |
-| **Total** | **44** | **19** | **22** | **3** |
-
-## Configuration
-
-All settings are in `sentinel-shield.yml` — detection mode (`block`/`log`), rate-limiter thresholds, IP allow/block lists, logging format, and traffic-analyzer window.
-
-## Assignment Workflow
-
-This project accompanies a structured student practical. See:
-
-- `docs/student_worksheet.md` — step-by-step practical worksheet (architecture → rules → attack simulation → logs → dashboard → rate limiting)
-- `docs/practical_work_report.md` — report template with sample outputs
-
-## Tests
+Start the project:
 
 ```bash
-python -m pytest tests/ -v
+docker compose up --build
 ```
 
-## Docker
+To run it in the background:
 
 ```bash
-docker-compose up -d    # builds SentinelShield + OWASP Juice Shop
-# SentinelShield: http://localhost:8080  (proxies to Juice Shop)
+docker compose up -d --build
 ```
 
-## Project Structure
+Check the containers:
 
+```bash
+docker compose ps
 ```
+
+The normal setup uses these ports:
+
+- `3000` - Juice Shop directly
+- `8080` - Juice Shop through SentinelShield
+
+Open the protected application here:
+
+```text
+http://localhost:8080
+```
+
+Opening `http://localhost:3000` bypasses SentinelShield and accesses Juice Shop directly.
+
+## View logs
+
+To watch the proxy logs:
+
+```bash
+docker compose logs -f sentinel-shield
+```
+
+The logs contain information about normal access, detected attacks, blocks, and rate-limit events. The project also contains saved examples in the `evidence/` directory.
+
+## Test normal traffic
+
+```bash
+curl -i http://localhost:8080/
+```
+
+A normal request should normally be forwarded and return a successful response from Juice Shop.
+
+## Test detection
+
+These tests are intended only for the local Juice Shop lab.
+
+### SQL injection example
+
+```bash
+curl -G -i \\
+  --data-urlencode "q=' OR '1'='1" \\
+  http://localhost:8080/rest/products/search
+```
+
+### XSS example
+
+```bash
+curl -G -i \\
+  --data-urlencode "q=<script>alert(1)</script>" \\
+  http://localhost:8080/rest/products/search
+```
+
+A blocked request should return a response similar to:
+
+```text
+HTTP/1.1 403 Forbidden
+X-SentinelShield: blocked
+```
+
+The response body contains the reason for the block.
+
+## Test rate limiting
+
+The rate limiter uses a token-bucket style approach. The current main configuration uses a rate limit of 50 requests per minute with a burst limit of 20.
+
+Run a small local test:
+
+```bash
+for i in {1..25}; do
+  curl -s -o /dev/null -w "request=$i status=%{http_code}\\n" \\
+    -G \\
+    --data-urlencode 'q=test' \\
+    http://localhost:8080/rest/products/search
+done
+```
+
+After the available burst is used, some requests should return HTTP `429` when rate limiting is reached. The exact number of successful requests can change if the browser has already used some tokens or if refill tokens arrive during the test.
+
+## Project folders
+
+```text
 sentinel_shield/
-├── core/          # WSGI engine, config, exceptions
-├── detection/     # rules engine + rules/*.yml signatures
-├── protection/    # rate limiter, IP reputation, sanitizer, WAF adapter
-├── monitor/       # JSON logger, traffic analyzer
-├── api/           # FastAPI admin server
-├── dashboard/     # Flask dashboard + Chart.js UI
-├── proxy/         # aiohttp reverse proxy
-└── cli/           # Click CLI
+├── api/          API and schemas
+├── cli/          command-line commands
+├── core/         common configuration and engine code
+├── dashboard/   dashboard server and templates
+├── detection/   detection engine and rules
+├── monitor/     logging and traffic analysis
+├── protection/  WAF, rate limiter, IP reputation, sanitizer
+└── proxy/       reverse proxy server
+
+evidence/        saved logs, reports, and summary tables
+scripts/         test and traffic scripts
+tests/           project tests
+docs/             project documentation
 ```
+
+## Practical results
+
+During the local testing, the project blocked test requests for SQL injection, XSS, LFI, SSRF, path traversal, and command injection. Normal control requests were allowed.
+
+The evidence folder contains the detailed logs and tables used for the practical report, including:
+
+- Attack request results.
+- Normal traffic results.
+- Blocked-request log samples.
+- Rate-limit results.
+- Summary tables.
+- Practical report files.
+
+The test results are for the local test setup and should not be interpreted as a complete security audit.
+
+## Known limitations
+
+- The rate limiter currently works in memory, so it is not shared between multiple application instances.
+- Docker networking can make several local requests appear to come from the same bridge IP.
+- Signature-based rules can sometimes overlap or create false positives.
+- More testing is needed for encoded payloads and unusual request formats.
+- Juice Shop is intentionally insecure and should not be exposed publicly without proper isolation and access control.
+
+## Documentation and links
+
+Detailed project report:
+
+```text
+[Add your public report link here]
+```
+
+Project deployment:
+
+```text
+[Add your public deployment link here]
+```
+
+Project feedback video:
+
+```text
+[Add your video link here]
+```
+
+## What I learned
+
+This project helped me understand how a reverse proxy can be placed in front of a web application and how security checks can be applied before forwarding requests. I also learned about rule matching, rate limiting, JSON logging, Docker networking, false positives, and the importance of testing normal traffic as well as attack traffic.
 
 ## License
 
-MIT
+This project is for educational and practical use. Add a license here if one is required by your institution or project rules.
