@@ -98,9 +98,11 @@ class ProxyServer:
             self.logger.log_access(ip, method, path, code["code"], elapsed)
 
     def _build_req(self, request: web.Request, body: bytes) -> dict:
+        skip = {"referer", "origin"}
         headers = {}
         for k, v in request.headers.items():
-            headers[k.lower()] = v
+            if k.lower() not in skip:
+                headers[k.lower()] = v
         return {
             "method": request.method,
             "path": request.path,
