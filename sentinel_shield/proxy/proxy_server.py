@@ -116,7 +116,7 @@ class ProxyServer:
         skip = {
             "host", "connection", "keep-alive", "proxy-authenticate",
             "proxy-authorization", "te", "trailers",
-            "transfer-encoding", "upgrade",
+            "transfer-encoding", "upgrade", "accept-encoding",
         }
         out = {}
         for k, v in request.headers.items():
