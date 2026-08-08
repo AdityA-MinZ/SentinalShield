@@ -1,3 +1,9 @@
+"""
+Logging helpers. Every event is written as one JSON line so the log can be
+parsed and analysed later (see the "sentinel-shield report" command and
+scripts/analyze_log.py).
+"""
+
 import json
 import logging
 import sys
@@ -5,13 +11,19 @@ from datetime import datetime, timezone
 
 
 class JSONFormatter(logging.Formatter):
-    _STD_ATTRS = set(
-        logging.LogRecord(
-            "sentinel_shield", logging.INFO, "", 0, "", (), None
-        ).__dict__
-    ) | {"message", "asctime"}
+    """Formats a log record as a single JSON object."""
 
-    def format(self, record: logging.LogRecord) -> str:
+    # Attributes that logging adds to every record automatically. We do not
+    # want to copy these into the JSON line, only our custom fields (the ones
+    # passed to logger.info(..., extra={...})).
+    _STD_ATTRS = {
+        "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
+        "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
+        "created", "msecs", "relativeCreated", "thread", "threadName",
+        "processName", "process", "taskName", "message", "asctime",
+    }
+
+    def format(self, record):
         log_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
@@ -27,7 +39,9 @@ class JSONFormatter(logging.Formatter):
 
 
 class Logger:
-    def __init__(self, config: dict):
+    """The wrapper used everywhere else in the code to write log events."""
+
+    def __init__(self, config):
         self.logger = logging.getLogger("sentinel_shield")
         self.logger.setLevel(config.get("level", "INFO").upper())
         self.logger.handlers.clear()
@@ -39,9 +53,7 @@ class Logger:
         if fmt == "json":
             formatter = JSONFormatter()
         else:
-            formatter = logging.Formatter(
-                "%(asctime)s [%(levelname)s] %(message)s"
-            )
+            formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
         if file_path:
             handler = logging.FileHandler(file_path)
@@ -53,15 +65,15 @@ class Logger:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    def _log(self, level: str, message: str, extra: dict = None):
+    def _log(self, level, message, extra=None):
         log_method = getattr(self.logger, level.lower(), self.logger.info)
         if extra:
             log_method(message, extra=extra)
         else:
             log_method(message)
 
-    def log_access(self, client_ip: str, method: str, path: str,
-                   status: int, elapsed: float):
+    def log_access(self, client_ip, method, path, status, elapsed):
+        """Write one JSON line for every completed request."""
         self._log("INFO", "Request processed", {
             "event": "access",
             "client_ip": client_ip,
@@ -71,8 +83,8 @@ class Logger:
             "elapsed_ms": round(elapsed * 1000, 2),
         })
 
-    def log_block(self, client_ip: str, path: str,
-                  reason_type: str, reason: str):
+    def log_block(self, client_ip, path, reason_type, reason):
+        """Write one JSON line when a request is blocked."""
         self._log("WARNING", "Request blocked", {
             "event": "block",
             "client_ip": client_ip,
@@ -81,8 +93,8 @@ class Logger:
             "reason": reason,
         })
 
-    def log_warning(self, client_ip: str, path: str,
-                    attack_type: str, rule_id: str):
+    def log_warning(self, client_ip, path, attack_type, rule_id):
+        """Write one JSON line when a rule matches (before blocking)."""
         self._log("WARNING", "Attack detected", {
             "event": "detection",
             "client_ip": client_ip,
@@ -91,7 +103,8 @@ class Logger:
             "rule_id": rule_id,
         })
 
-    def log_error(self, client_ip: str, path: str, error: str):
+    def log_error(self, client_ip, path, error):
+        """Write one JSON line when something goes wrong internally."""
         self._log("ERROR", "Internal error", {
             "event": "error",
             "client_ip": client_ip,
@@ -99,5 +112,5 @@ class Logger:
             "error": error,
         })
 
-    def log_info(self, message: str, extra: dict = None):
+    def log_info(self, message, extra=None):
         self._log("INFO", message, extra)

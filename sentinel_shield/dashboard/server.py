@@ -1,3 +1,10 @@
+"""
+The web dashboard (Flask). It reads the log file and the live in-memory
+stats and shows them in a browser page. Start it with:
+
+    sentinel-shield dashboard
+"""
+
 import json
 from pathlib import Path
 from collections import Counter

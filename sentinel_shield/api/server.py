@@ -1,3 +1,17 @@
+"""
+The admin API (FastAPI). It exposes stats and live controls over HTTP:
+
+    GET  /health         service status
+    GET  /stats          traffic stats
+    GET  /rules          loaded rules
+    GET  /config         current config
+    GET  /rate-limiter   rate limiter stats
+    GET  /ip-reputation  blocked / allowed IPs
+    POST /ip             block/unblock/allow an IP
+    POST /reload-rules   re-read the rule files
+    POST /reset-stats    clear traffic stats
+"""
+
 import time
 
 from fastapi import FastAPI, HTTPException

@@ -1,3 +1,8 @@
+"""
+Request/response models for the admin API. Pydantic uses these to validate
+and document the API (they show up in the auto-generated /docs page).
+"""
+
 from pydantic import BaseModel
 from typing import List, Optional
 

@@ -1,5 +1,14 @@
+"""
+The WSGI middleware that runs SentinelShield for a normal Python web app.
+
+Every request goes through the same pipeline:
+    1. Is the client IP blocked?
+    2. Has the client hit the rate limit?
+    3. Does the request match an attack rule?
+If the request passes all checks it is forwarded to the real app.
+"""
+
 import time
-from typing import Callable, Optional
 
 from .config import Config, config as default_config
 from .exceptions import AttackDetected, BlockedIP, RateLimitExceeded
@@ -12,7 +21,7 @@ from ..monitor.logger import Logger
 
 
 class SentinelShield:
-    def __init__(self, app: Callable, config: Optional[Config] = None):
+    def __init__(self, app, config=None):
         self.app = app
         self.config = config or default_config
         self.rules_engine = RulesEngine(self.config.rules_dir)
@@ -24,72 +33,79 @@ class SentinelShield:
         self.detection_mode = self.config.detection.get("mode", "log")
 
     def __call__(self, environ, start_response):
-        t0 = time.monotonic()
-        ip = environ.get("REMOTE_ADDR", "unknown")
+        start_time = time.monotonic()
+        client_ip = environ.get("REMOTE_ADDR", "unknown")
         method = environ.get("REQUEST_METHOD", "GET")
         path = environ.get("PATH_INFO", "/")
+        status_code = 200
+
+        def remember_status(status_line, headers, exc_info=None):
+            # Capture the status the real app picked, so the log line below
+            # and the traffic stats record the true result of the request.
+            nonlocal status_code
+            status_code = int(status_line.split()[0])
+            self.traffic_analyzer.record(method, path, status_code)
+            return start_response(status_line, headers, exc_info)
 
         try:
-            self._check_ip(ip)
-            self._check_rate(ip)
-            self._inspect(environ, ip)
-            self.traffic_analyzer.record(method, path, 200)
+            self._check_ip(client_ip)
+            self._check_rate(client_ip)
+            self._inspect(environ, client_ip)
+            return self.app(environ, remember_status)
 
-            def custom_start_response(status, headers, exc_info=None):
-                self.traffic_analyzer.record(method, path, int(status.split()[0]))
-                return start_response(status, headers, exc_info)
+        except (AttackDetected, BlockedIP, RateLimitExceeded) as error:
+            status_code = 429 if isinstance(error, RateLimitExceeded) else 403
+            self.traffic_analyzer.record(method, path, status_code)
+            self.logger.log_block(client_ip, path, type(error).__name__, str(error))
+            return self._block_response(start_response, str(error), status_code)
 
-            return self.app(environ, custom_start_response)
-
-        except (AttackDetected, BlockedIP, RateLimitExceeded) as e:
-            self.logger.log_block(ip, path, type(e).__name__, str(e))
-            status = 429 if isinstance(e, RateLimitExceeded) else 403
-            self.traffic_analyzer.record(method, path, status)
-            return self._block(start_response, str(e), status)
-
-        except Exception as e:
-            self.logger.log_error(ip, path, str(e))
-            self.traffic_analyzer.record(method, path, 500)
-            return self._error(start_response)
+        except Exception as error:
+            status_code = 500
+            self.traffic_analyzer.record(method, path, status_code)
+            self.logger.log_error(client_ip, path, str(error))
+            return self._error_response(start_response)
 
         finally:
-            elapsed = time.monotonic() - t0
-            self.logger.log_access(
-                ip, method, path,
-                self.traffic_analyzer.get_status_code() or 200,
-                elapsed,
-            )
+            elapsed = time.monotonic() - start_time
+            self.logger.log_access(client_ip, method, path, status_code, elapsed)
 
-    def _check_ip(self, ip):
-        if not self.ip_reputation.is_allowed(ip):
-            raise BlockedIP(ip, "IP is blocked")
+    def _check_ip(self, client_ip):
+        """Reject the request if the IP is on the blocklist."""
+        if not self.ip_reputation.is_allowed(client_ip):
+            raise BlockedIP(client_ip, "IP is blocked")
 
-    def _check_rate(self, ip):
-        if self.ip_reputation.is_allowlisted(ip):
-            return
-        if not self.rate_limiter.allow(ip):
-            raise RateLimitExceeded(ip)
+    def _check_rate(self, client_ip):
+        """Reject the request if the client used up its token bucket."""
+        if self.ip_reputation.is_allowlisted(client_ip):
+            return  # allowlisted IPs skip rate limiting
+        if not self.rate_limiter.allow(client_ip):
+            raise RateLimitExceeded(client_ip)
 
-    def _inspect(self, environ, ip):
-        req = self._parse_req(environ)
-        matches = self.rules_engine.evaluate(req)
-        for m in matches:
+    def _inspect(self, environ, client_ip):
+        """Scan the request against every rule."""
+        request = self._parse_request(environ)
+        matches = self.rules_engine.evaluate(request)
+        for match in matches:
             if self.detection_mode == "block":
                 raise AttackDetected(
-                    rule_id=m["rule_id"],
-                    attack_type=m["attack_type"],
-                    confidence=m["confidence"],
-                    client_ip=ip,
-                    location=m["location"],
-                    payload=m["payload"],
+                    rule_id=match["rule_id"],
+                    attack_type=match["attack_type"],
+                    confidence=match["confidence"],
+                    client_ip=client_ip,
+                    location=match["location"],
+                    payload=match["payload"],
                 )
-            self.logger.log_warning(ip, req["path"], m["attack_type"], m["rule_id"])
+            # In "log" mode we only record the match, we do not block.
+            self.logger.log_warning(client_ip, request["path"], match["attack_type"], match["rule_id"])
 
-    def _parse_req(self, environ):
+    def _parse_request(self, environ):
+        """Turn a WSGI environ into a simple dict the rules engine can scan."""
         headers = {}
-        for k, v in environ.items():
-            if k.startswith("HTTP_"):
-                headers[k[5:].replace("_", "-").lower()] = v
+        for key, value in environ.items():
+            if key.startswith("HTTP_"):
+                # "HTTP_USER_AGENT" becomes "user-agent".
+                headers[key[5:].replace("_", "-").lower()] = value
+
         return {
             "method": environ.get("REQUEST_METHOD", "GET"),
             "path": environ.get("PATH_INFO", "/"),
@@ -102,6 +118,7 @@ class SentinelShield:
         }
 
     def _read_body(self, environ):
+        """Read and decode the request body if there is one."""
         try:
             length = int(environ.get("CONTENT_LENGTH", 0))
             if length > 0:
@@ -111,8 +128,9 @@ class SentinelShield:
             pass
         return ""
 
-    def _block(self, start_response, reason, status=403):
-        phrase = "429 Too Many Requests" if status == 429 else "403 Forbidden"
+    def _block_response(self, start_response, reason, status_code):
+        """Return a JSON 403/429 response instead of forwarding the request."""
+        phrase = "429 Too Many Requests" if status_code == 429 else "403 Forbidden"
         headers = [
             ("Content-Type", "application/json"),
             ("X-SentinelShield", "blocked"),
@@ -121,7 +139,8 @@ class SentinelShield:
         start_response(phrase, headers)
         return [body.encode()]
 
-    def _error(self, start_response):
+    def _error_response(self, start_response):
+        """Return a generic JSON 500 response on unexpected errors."""
         headers = [("Content-Type", "application/json")]
         body = '{"error":"internal_error"}'
         start_response("500 Internal Server Error", headers)

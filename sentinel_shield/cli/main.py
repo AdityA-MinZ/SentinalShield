@@ -1,3 +1,14 @@
+"""
+Command line interface. Run "sentinel-shield --help" to see the commands:
+
+    sentinel-shield proxy       run the reverse proxy in front of an app
+    sentinel-shield admin       start the admin API (stats, IP control)
+    sentinel-shield dashboard   start the web dashboard
+    sentinel-shield report      print a summary of a log file
+    sentinel-shield status      show the current configuration
+    sentinel-shield rules       list the loaded detection rules
+"""
+
 import asyncio
 import json
 import signal
@@ -27,11 +38,11 @@ def proxy(config, host, port, upstream):
     """Run as standalone reverse proxy (for Juice Shop demo)"""
     cfg = _load_config(config)
     if host:
-        cfg._data["server"]["host"] = host
+        cfg.set("server", "host", host)
     if port:
-        cfg._data["server"]["port"] = port
+        cfg.set("server", "port", port)
     if upstream:
-        cfg._data["server"]["upstream"] = upstream
+        cfg.set("server", "upstream", upstream)
 
     server = ProxyServer(cfg)
 
@@ -85,8 +96,8 @@ def wrap(config, app, host, port):
 def admin(config, host, port):
     """Start the admin API server"""
     cfg = _load_config(config)
-    cfg._data["admin_api"]["host"] = host
-    cfg._data["admin_api"]["port"] = port
+    cfg.set("admin_api", "host", host)
+    cfg.set("admin_api", "port", port)
 
     from ..detection.rules_engine import RulesEngine
     from ..protection.rate_limiter import RateLimiter
@@ -113,7 +124,7 @@ def dashboard(config, host, port, log_file):
     """Start the web dashboard"""
     cfg = _load_config(config)
     if log_file:
-        cfg._data.setdefault("logging", {})["file"] = log_file
+        cfg.set("logging", "file", log_file)
 
     from ..dashboard.server import create_app
     app = create_app(cfg)
@@ -132,7 +143,6 @@ def dashboard(config, host, port, log_file):
 def report(config, log_file, output_format):
     """Generate security summary report from log file"""
     cfg = _load_config(config)
-
     if not log_file:
         log_file = cfg.logging.get("file", "sentinel-shield.log")
 
@@ -141,8 +151,20 @@ def report(config, log_file, output_format):
         click.echo(f"Log file not found: {log_path}", err=True)
         raise SystemExit(1)
 
+    summary = _analyze_log(log_path)
+
+    if output_format == "json":
+        _report_json(summary)
+    elif output_format == "markdown":
+        _report_markdown(summary)
+    else:
+        _report_table(summary)
+
+
+def _analyze_log(log_path):
+    """Read a JSONL log file and count requests, attacks and IPs."""
     total_requests = 0
-    blocks = []
+    security_events = []
     ip_requests = Counter()
     attack_types = Counter()
 
@@ -153,37 +175,38 @@ def report(config, log_file, output_format):
                 continue
             try:
                 entry = json.loads(line)
-                event = entry.get("event", "")
                 ip = entry.get("client_ip", "unknown")
                 ip_requests[ip] += 1
 
+                event = entry.get("event", "")
                 if event == "access":
                     total_requests += 1
                 elif event in ("block", "detection"):
-                    atype = entry.get("attack_type", "") or entry.get("reason_type", "")
-                    if atype:
-                        attack_types[atype] += 1
-                    entry["_line"] = line
-                    blocks.append(entry)
+                    attack_type = entry.get("attack_type", "") or entry.get("reason_type", "")
+                    if attack_type:
+                        attack_types[attack_type] += 1
+                    security_events.append(entry)
             except (json.JSONDecodeError, KeyError):
                 continue
 
-    total_blocks = len(blocks)
-    top_ips = ip_requests.most_common(10)
-
-    if output_format == "json":
-        _report_json(total_requests, total_blocks, attack_types, top_ips, blocks)
-    elif output_format == "markdown":
-        _report_markdown(total_requests, total_blocks, attack_types, top_ips, blocks)
-    else:
-        _report_table(total_requests, total_blocks, attack_types, top_ips, blocks)
+    return {
+        "total_requests": total_requests,
+        "total_blocks": len(security_events),
+        "attack_types": attack_types,
+        "top_ips": ip_requests.most_common(10),
+        "security_events": security_events,
+    }
 
 
-def _report_table(total, blocks, attack_types, top_ips, events):
+def _report_table(summary):
+    attack_types = summary["attack_types"]
+    top_ips = summary["top_ips"]
+    events = summary["security_events"]
+
     click.echo("\nSentinelShield Security Report")
     click.echo("=" * 50)
-    click.echo(f"Total requests analyzed: {total}")
-    click.echo(f"Blocked/detected events: {blocks}")
+    click.echo(f"Total requests analyzed: {summary['total_requests']}")
+    click.echo(f"Blocked/detected events: {summary['total_blocks']}")
     click.echo()
     click.echo("Attack Distribution:")
     click.echo("-" * 30)
@@ -204,9 +227,9 @@ def _report_table(total, blocks, attack_types, top_ips, events):
         click.echo(f"  {ts} {ip} {atype}")
 
 
-def _report_json(total, blocks, attack_types, top_ips, events):
+def _report_json(summary):
     recent = []
-    for e in events[-20:]:
+    for e in summary["security_events"][-20:]:
         recent.append({
             "timestamp": e.get("timestamp", ""),
             "client_ip": e.get("client_ip", ""),
@@ -215,21 +238,23 @@ def _report_json(total, blocks, attack_types, top_ips, events):
             "rule_id": e.get("rule_id", ""),
         })
     data = {
-        "total_requests": total,
-        "total_blocks": blocks,
-        "attack_distribution": dict(attack_types.most_common()),
-        "top_ips": [],
+        "total_requests": summary["total_requests"],
+        "total_blocks": summary["total_blocks"],
+        "attack_distribution": dict(summary["attack_types"].most_common()),
+        "top_ips": [{"ip": ip, "count": count} for ip, count in summary["top_ips"]],
         "recent_events": recent,
     }
-    for ip, count in top_ips:
-        data["top_ips"].append({"ip": ip, "count": count})
     click.echo(json.dumps(data, indent=2))
 
 
-def _report_markdown(total, blocks, attack_types, top_ips, events):
+def _report_markdown(summary):
+    attack_types = summary["attack_types"]
+    top_ips = summary["top_ips"]
+    events = summary["security_events"]
+
     click.echo("# SentinelShield Security Report\n")
-    click.echo(f"- **Total requests:** {total}")
-    click.echo(f"- **Blocked/detected:** {blocks}\n")
+    click.echo(f"- **Total requests:** {summary['total_requests']}")
+    click.echo(f"- **Blocked/detected:** {summary['total_blocks']}\n")
     click.echo("## Attack Distribution\n")
     click.echo("| Attack Type | Count |")
     click.echo("|------------|-------|")

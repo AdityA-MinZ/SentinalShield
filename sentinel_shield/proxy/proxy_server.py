@@ -1,3 +1,10 @@
+"""
+The reverse proxy used in front of non-Python apps (like OWASP Juice Shop).
+
+It runs the same checks as the WSGI middleware (blocked IP, rate limit,
+attack rules) and then forwards clean requests to the upstream server.
+"""
+
 import time
 
 import aiohttp
@@ -13,7 +20,7 @@ from ..monitor.logger import Logger
 
 
 class ProxyServer:
-    def __init__(self, config: Config):
+    def __init__(self, config):
         self.config = config
         self.upstream = config.server.get("upstream", "http://localhost:3000")
         self.rules_engine = RulesEngine(config.rules_dir)
@@ -24,50 +31,56 @@ class ProxyServer:
         self.detection_mode = config.detection.get("mode", "log")
         self.app = None
 
-    def build_app(self) -> web.Application:
+    def build_app(self):
+        """Build the aiohttp app. Every path goes through _handle_request."""
         self.app = web.Application()
         self.app.router.add_route("*", "/{tail:.*}", self._handle_request)
         return self.app
 
-    async def _handle_request(self, request: web.Request):
-        ip = request.remote or "127.0.0.1"
+    async def _handle_request(self, request):
+        client_ip = request.remote or "127.0.0.1"
         method = request.method
         path = request.path
-        t0 = time.monotonic()
-        code = {"code": 200}
+        start_time = time.monotonic()
+        status_code = 200
 
         try:
-            if not self.ip_reputation.is_allowed(ip):
-                self.logger.log_block(ip, path, "BlockedIP", "IP is blocked")
-                code["code"] = 403
+            # 1) Blocked IP?
+            if not self.ip_reputation.is_allowed(client_ip):
+                self.logger.log_block(client_ip, path, "BlockedIP", "IP is blocked")
+                status_code = 403
                 return web.Response(status=403, body=b'{"error":"blocked"}')
 
-            if not self.ip_reputation.is_allowlisted(ip) and not self.rate_limiter.allow(ip):
-                self.logger.log_block(ip, path, "RateLimitExceeded", "Rate limit exceeded")
-                code["code"] = 429
+            # 2) Too many requests?
+            if not self.ip_reputation.is_allowlisted(client_ip) and not self.rate_limiter.allow(client_ip):
+                self.logger.log_block(client_ip, path, "RateLimitExceeded", "Rate limit exceeded")
+                status_code = 429
                 return web.Response(status=429, body=b'{"error":"rate_limited"}')
 
+            # 3) Attack pattern?
             body = await request.read() if request.can_read_body else b""
-            req_data = self._build_req(request, body)
-            matches = self.rules_engine.evaluate(req_data)
+            request_data = self._build_request(request, body)
+            matches = self.rules_engine.evaluate(request_data)
 
             if matches:
-                for m in matches:
-                    self.logger.log_warning(ip, path, m["attack_type"], m["rule_id"])
-                    self.traffic_analyzer.record_attack(m["attack_type"])
+                for match in matches:
+                    self.logger.log_warning(client_ip, path, match["attack_type"], match["rule_id"])
+                    self.traffic_analyzer.record_attack(match["attack_type"])
 
                 if self.detection_mode == "block":
+                    first_match = matches[0]
                     self.logger.log_block(
-                        ip, path, "AttackDetected",
-                        f"{matches[0]['attack_type']}: {matches[0]['rule_id']}",
+                        client_ip, path, "AttackDetected",
+                        f"{first_match['attack_type']}: {first_match['rule_id']}",
                     )
-                    code["code"] = 403
+                    status_code = 403
                     return web.Response(
                         status=403,
                         body=b'{"error":"blocked","reason":"attack_detected"}',
                         headers={"X-SentinelShield": "blocked"},
                     )
 
+            # 4) Forward the request to the upstream server.
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.request(
@@ -77,32 +90,34 @@ class ProxyServer:
                         headers=self._clean_headers(request),
                         data=body,
                         timeout=aiohttp.ClientTimeout(total=30),
-                    ) as resp:
-                        resp_body = await resp.read()
-                        code["code"] = resp.status
-                        self.traffic_analyzer.record(method, path, resp.status)
+                    ) as response:
+                        response_body = await response.read()
+                        status_code = response.status
+                        self.traffic_analyzer.record(method, path, response.status)
                         return web.Response(
-                            body=resp_body,
-                            status=resp.status,
-                            headers=self._clean_response_headers(resp),
+                            body=response_body,
+                            status=response.status,
+                            headers=self._clean_response_headers(response),
                         )
-            except Exception as e:
-                self.logger.log_error(ip, path, str(e))
-                code["code"] = 502
+            except Exception as error:
+                self.logger.log_error(client_ip, path, str(error))
+                status_code = 502
                 return web.Response(
                     status=502,
-                    body=f'{{"error":"upstream_unavailable","detail":"{str(e)}"}}'.encode(),
+                    body=f'{{"error":"upstream_unavailable","detail":"{str(error)}"}}'.encode(),
                 )
-        finally:
-            elapsed = time.monotonic() - t0
-            self.logger.log_access(ip, method, path, code["code"], elapsed)
 
-    def _build_req(self, request: web.Request, body: bytes) -> dict:
-        skip = {"referer", "origin"}
+        finally:
+            elapsed = time.monotonic() - start_time
+            self.logger.log_access(client_ip, method, path, status_code, elapsed)
+
+    def _build_request(self, request, body):
+        """Build the dict the rules engine scans from an aiohttp request."""
+        skip = {"referer", "origin"}  # the site's own headers trigger false positives
         headers = {}
-        for k, v in request.headers.items():
-            if k.lower() not in skip:
-                headers[k.lower()] = v
+        for key, value in request.headers.items():
+            if key.lower() not in skip:
+                headers[key.lower()] = value
         return {
             "method": request.method,
             "path": request.path,
@@ -114,30 +129,32 @@ class ProxyServer:
             "uri": f"{request.path}?{request.query_string}",
         }
 
-    def _clean_headers(self, request: web.Request) -> dict:
+    def _clean_headers(self, request):
+        """Remove hop-by-hop headers before forwarding to the upstream."""
         skip = {
             "host", "connection", "keep-alive", "proxy-authenticate",
             "proxy-authorization", "te", "trailers",
             "transfer-encoding", "upgrade", "accept-encoding",
         }
-        out = {}
-        for k, v in request.headers.items():
-            if k.lower() not in skip:
-                out[k] = v
-        return out
+        clean = {}
+        for key, value in request.headers.items():
+            if key.lower() not in skip:
+                clean[key] = value
+        return clean
 
-    def _clean_response_headers(self, resp) -> CIMultiDict:
+    def _clean_response_headers(self, response):
+        """Remove hop-by-hop headers from the upstream response."""
         skip = {
             "connection", "keep-alive", "proxy-authenticate",
             "proxy-authorization", "te", "trailers",
             "transfer-encoding", "upgrade",
             "content-length", "content-encoding",
         }
-        out = CIMultiDict()
-        for k, v in resp.headers.items():
-            if k.lower() not in skip:
-                out.add(k, v)
-        return out
+        clean = CIMultiDict()
+        for key, value in response.headers.items():
+            if key.lower() not in skip:
+                clean.add(key, value)
+        return clean
 
     async def start(self):
         host = self.config.server.get("host", "0.0.0.0")
