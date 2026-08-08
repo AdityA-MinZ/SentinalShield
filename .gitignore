@@ -18,6 +18,7 @@ htmlcov/
 sentinel-shield.log
 exercise_output_*/
 *.log
+!evidence/*.log
 
 # OS
 .DS_Store

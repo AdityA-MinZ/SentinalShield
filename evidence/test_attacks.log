@@ -1,0 +1,92 @@
+============================================
+  SentinelShield - Attack Simulation
+  Target: http://localhost:8080
+============================================
+
+--- SQL Injection Tests ---
+  [PASS] Union-based SQLi in query (HTTP 403)
+  [PASS] Boolean-based SQLi (OR 1=1) (HTTP 403)
+  [PASS] Comment-based SQLi (trailing --) (HTTP 403)
+  [PASS] Time-based SQLi (SLEEP) (HTTP 403)
+  [PASS] Stacked query (DROP) (HTTP 403)
+
+--- XSS Tests ---
+  [PASS] Script tag injection (HTTP 403)
+  [PASS] Event handler (onerror) (HTTP 403)
+  [PASS] JavaScript URI scheme (HTTP 403)
+  [PASS] Encoded XSS (%3Cscript) (HTTP 403)
+  [PASS] HTML attribute injection (HTTP 403)
+
+--- LFI Tests ---
+  [PASS] Directory traversal (../) (HTTP 403)
+  [PASS] System file access (/etc/shadow) (HTTP 403)
+  [PASS] PHP wrapper (php://filter) (HTTP 403)
+  [PASS] Windows file (boot.ini) (HTTP 403)
+  [PASS] Log file access (HTTP 403)
+
+--- SSRF Tests ---
+  [PASS] Internal IP (127.0.0.1) (HTTP 403)
+  [PASS] Cloud metadata (169.254.169.254) (HTTP 403)
+  [PASS] Internal hostname (localhost) (HTTP 403)
+  [PASS] Private IP (192.168.1.1) (HTTP 403)
+
+--- Path Traversal Tests ---
+  [PASS] Encoded traversal (%2e%2e%2f) (HTTP 403)
+  [PASS] Double-encoded traversal (%252e) (HTTP 403)
+
+--- Command Injection Tests ---
+  [PASS] Shell metacharacter (;whoami) (HTTP 403)
+  [PASS] Command keyword (ls -la) (HTTP 403)
+  [PASS] AND chained command (&&cat) (HTTP 403)
+  [PASS] Piped reverse shell (|nc) (HTTP 403)
+  [PASS] Command substitution ($(whoami)) (HTTP 403)
+  [PASS] IFS whitespace bypass (HTTP 403)
+  [PASS] Interpreter invocation (sh -c) (HTTP 403)
+  [PASS] Windows shell (cmd.exe /c) (HTTP 403)
+  [PASS] Encoded newline command (HTTP 403)
+
+--- Normal Request Tests (should pass) ---
+  [PASS] Normal homepage request (HTTP 200)
+  [PASS] Normal search query (HTTP 200)
+  [PASS] Normal path request (HTTP 200)
+
+============================================
+  Results: 33 passed, 0 failed
+============================================
+
+Detailed Results:
+STATUS  TEST                                               HTTP
+------  ----                                               ---
+PASS    Union-based SQLi in query                          403
+PASS    Boolean-based SQLi (OR 1=1)                        403
+PASS    Comment-based SQLi (trailing --)                   403
+PASS    Time-based SQLi (SLEEP)                            403
+PASS    Stacked query (DROP)                               403
+PASS    Script tag injection                               403
+PASS    Event handler (onerror)                            403
+PASS    JavaScript URI scheme                              403
+PASS    Encoded XSS (%3Cscript)                            403
+PASS    HTML attribute injection                           403
+PASS    Directory traversal (../)                          403
+PASS    System file access (/etc/shadow)                   403
+PASS    PHP wrapper (php://filter)                         403
+PASS    Windows file (boot.ini)                            403
+PASS    Log file access                                    403
+PASS    Internal IP (127.0.0.1)                            403
+PASS    Cloud metadata (169.254.169.254)                   403
+PASS    Internal hostname (localhost)                      403
+PASS    Private IP (192.168.1.1)                           403
+PASS    Encoded traversal (%2e%2e%2f)                      403
+PASS    Double-encoded traversal (%252e)                   403
+PASS    Shell metacharacter (;whoami)                      403
+PASS    Command keyword (ls -la)                           403
+PASS    AND chained command (&&cat)                        403
+PASS    Piped reverse shell (                              nc)|403
+PASS    Command substitution ($(whoami))                   403
+PASS    IFS whitespace bypass                              403
+PASS    Interpreter invocation (sh -c)                     403
+PASS    Windows shell (cmd.exe /c)                         403
+PASS    Encoded newline command                            403
+PASS    Normal homepage request                            200
+PASS    Normal search query                                200
+PASS    Normal path request                                200
