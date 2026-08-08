@@ -15,16 +15,20 @@ application and reached at `http://localhost:8080`.
 | Detection mode | `block` |
 | Detection rules | 44 rules across 7 categories |
 | Rate limiter (main proxy) | 600 req/min, burst 100 |
+| Rate limiter (main proxy, current config) | 50 req/min, burst 20 |
 | Rate limiter (brute-force test proxy) | 60 req/min, burst 10, empty allowlist |
 | Logging | JSONL with timestamp, IP, category |
 
-Three experiments were run and the logs captured:
+Four experiments were run and the logs captured:
 
 1. **Normal traffic baseline** — 15 legitimate requests
 2. **Attack simulation** — 30 malicious payloads + 3 normal control requests
    (`scripts/test_attacks.sh`)
 3. **Brute-force / rate-limiting test** — 40 rapid requests against a dedicated
    proxy with a small token bucket (`scripts/brute_force.sh`)
+4. **Rate-limit enforcement test (current config)** — 40 rapid requests to
+   `/login` against the running main proxy with its current 50/20 token bucket
+   (`scripts/brute_force.sh http://127.0.0.1:8080 40 0.05`)
 
 All raw outputs are in `evidence/` (see the inventory in Section 11).
 
@@ -190,7 +194,8 @@ Every request came from the same source IP because the Docker container
 network-maps client connections to the bridge gateway. On a real deployment
 each client would have its own IP, and the repeated-IP aggregation would
 identify specific abusers. The brute-force experiment shows exactly this
-pattern: one IP flooding `/login` repeatedly.
+pattern: one IP flooding `/login` repeatedly. The enforcement test in
+Section 8 also came from `192.168.65.1` (the same bridge gateway).
 
 ---
 
@@ -231,6 +236,36 @@ Rate limiter triggered after 12 requests.
 - Effective throughput was throttled from 20 req/sec down to ~1 req/sec, which
   would make a credential-stuffing attack impractically slow.
 
+### Enforcement test on the current config (after the rate-limit fix)
+
+The attack experiments above were captured while the main proxy used a wide
+600/100 bucket so the WAF tests were not distorted by throttling. After the
+assessor's feedback, the production config was tightened to **50 req/min,
+burst 20** and enforcement was re-tested against the running main proxy:
+40 rapid requests to `/login`.
+
+```
+Allowed: 19
+Blocked: 21   (all HTTP 429)
+Rate limiter triggered after 18 requests.
+```
+
+| Metric | Value |
+|---|---|
+| Total requests sent | 40 |
+| Allowed (HTTP 200) | 19 |
+| Rate limited (HTTP 429) | 21 |
+| Requests before first block | 18 (burst consumed) |
+| `RateLimitExceeded` log events | 21 |
+
+The burst held exactly as configured: 18 rapid requests were served, then the
+bucket emptied and everything else got 429. (The burst is 20 tokens; 2 had
+already been consumed by earlier `socket.io` polls from a browser session, so
+18 were left at the start of the burst.) One refill token arrived mid-run and
+let a single request through (`13:34:23` row in
+`evidence/rate_limit_enforcement_table.md`), then 429s resumed until the run
+ended. This was confirmed reproducible after a fresh rebuild.
+
 ---
 
 ## 9. Interpretation Notes
@@ -261,6 +296,13 @@ bucket algorithm visible in real time. One practical note: on the Docker setup
 all traffic shows as the bridge gateway IP, so per-IP aggregation isn't very
 interesting locally — it only becomes meaningful on a real network.
 
+After tightening the config to 50/20, I re-tested enforcement against the
+running proxy. The burst held exactly as configured — the first 18 requests
+went through, then the bucket emptied and 21 of the remaining 22 got 429
+(one refill token slipped through mid-run). That tells me the fix isn't just
+present in the config file, it's actually enforced at runtime, and it
+reproduces after a fresh rebuild.
+
 ---
 
 ## 10. Security Recommendations
@@ -288,7 +330,9 @@ _(First draft — please read through and reword so it's in your own words.)_
 
 4. **Set the production rate-limiter budget from real page-load behavior.**
    A single page request pulls dozens of assets, so a burst of 10 blocked a
-   normal page load in my testing. Choose `burst_size`/`requests_per_minute`
+   normal page load in my testing. The enforcement test reinforced this: two
+   background `socket.io` polls had already consumed part of the 20-token burst
+   before my test run even started. Choose `burst_size`/`requests_per_minute`
    from measured traffic, or exempt static assets, so the limiter targets
    state-changing endpoints instead of asset downloads.
 
@@ -301,9 +345,14 @@ _(First draft — please read through and reword so it's in your own words.)_
 | `evidence/normal_traffic.log` | 15 baseline requests, all HTTP 200 |
 | `evidence/test_attacks.log` | 30 attack + 3 control results (33/33 pass) |
 | `evidence/brute_force.log` | Rate-limit run: 12 allowed / 28 blocked |
+| `evidence/rate_limit_enforcement.log` | Enforcement run on current config: 19 allowed / 21 rate limited |
+| `evidence/rate_limit_enforcement_main.log` | Full JSONL capture (enforcement run) |
+| `evidence/rate_limit_enforcement_table.md` | Per-request analysis of the enforcement log |
 | `evidence/sentinel-shield.log` | Full JSONL capture (main proxy) |
 | `evidence/sentinel-shield-rate-demo.log` | Full JSONL capture (rate-limit proxy) |
 | `evidence/requests_table.md` | Per-request analysis of the main log |
 | `evidence/rate_limit_table.md` | Per-request analysis of the rate-limit log |
 | `evidence/report.md` | `sentinel-shield report` output (main log) |
 | `evidence/rate_limit_report.md` | `sentinel-shield report` output (rate log) |
+| `evidence/log_samples.md` | Annotated sample log lines (allowed / blocked / rate limited) |
+| `evidence/summary_tables.md` | Consolidated summary of all counts and categories |
