@@ -2,6 +2,7 @@ import time
 
 import aiohttp
 from aiohttp import web
+from multidict import CIMultiDict
 
 from ..core.config import Config
 from ..detection.rules_engine import RulesEngine
@@ -83,7 +84,7 @@ class ProxyServer:
                         return web.Response(
                             body=resp_body,
                             status=resp.status,
-                            headers=dict(resp.headers),
+                            headers=self._clean_response_headers(resp),
                         )
             except Exception as e:
                 self.logger.log_error(ip, path, str(e))
@@ -121,6 +122,19 @@ class ProxyServer:
         for k, v in request.headers.items():
             if k.lower() not in skip:
                 out[k] = v
+        return out
+
+    def _clean_response_headers(self, resp) -> CIMultiDict:
+        skip = {
+            "connection", "keep-alive", "proxy-authenticate",
+            "proxy-authorization", "te", "trailers",
+            "transfer-encoding", "upgrade",
+            "content-length", "content-encoding",
+        }
+        out = CIMultiDict()
+        for k, v in resp.headers.items():
+            if k.lower() not in skip:
+                out.add(k, v)
         return out
 
     async def start(self):
