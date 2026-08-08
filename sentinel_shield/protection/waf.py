@@ -1,4 +1,3 @@
-from typing import Optional, Callable, Union
 from pathlib import Path
 
 from ..core.config import Config, config as default_config
@@ -6,11 +5,7 @@ from ..core.engine import SentinelShield
 
 
 class WAFMiddleware:
-    def __init__(
-        self,
-        app: Callable,
-        config: Optional[Union[Config, Path, str, dict]] = None,
-    ):
+    def __init__(self, app, config=None):
         if config is None:
             config = default_config
         elif isinstance(config, Config):

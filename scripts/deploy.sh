@@ -8,7 +8,6 @@ echo "============================================"
 echo "  SentinelShield Deployment Script"
 echo "============================================"
 
-# Check Python
 if ! command -v python3 &> /dev/null; then
     echo "ERROR: Python 3.10+ is required."
     exit 1
@@ -17,7 +16,6 @@ fi
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 echo "Python version: $PYTHON_VERSION"
 
-# Create virtual environment
 VENV_DIR="$PROJECT_DIR/venv"
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment..."
@@ -26,7 +24,6 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-# Install dependencies
 echo "Installing dependencies..."
 pip install --upgrade pip -q
 pip install -r "$PROJECT_DIR/requirements.txt" -q

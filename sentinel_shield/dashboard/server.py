@@ -1,9 +1,6 @@
 import json
-import os
 from pathlib import Path
-from collections import Counter, defaultdict
-from datetime import datetime, timezone
-from typing import Optional
+from collections import Counter
 
 from flask import Flask, jsonify, render_template, request as flask_request
 
@@ -15,20 +12,20 @@ from ..monitor.traffic_analyzer import TrafficAnalyzer
 
 app = Flask(__name__)
 
-config: Optional[Config] = None
-rules_engine: Optional[RulesEngine] = None
-rate_limiter: Optional[RateLimiter] = None
-ip_reputation: Optional[IPReputation] = None
-traffic_analyzer: Optional[TrafficAnalyzer] = None
+cfg = None
+eng = None
+rl = None
+ipr = None
+ta = None
 
 
-def init(cfg: Config):
-    global config, rules_engine, rate_limiter, ip_reputation, traffic_analyzer
-    config = cfg
-    rules_engine = RulesEngine(cfg.rules_dir)
-    rate_limiter = RateLimiter(cfg.rate_limiter)
-    ip_reputation = IPReputation(cfg.ip_reputation)
-    traffic_analyzer = TrafficAnalyzer(cfg.traffic_analyzer)
+def init(c):
+    global cfg, eng, rl, ipr, ta
+    cfg = c
+    eng = RulesEngine(c.rules_dir)
+    rl = RateLimiter(c.rate_limiter)
+    ipr = IPReputation(c.ip_reputation)
+    ta = TrafficAnalyzer(c.traffic_analyzer)
 
 
 @app.route("/")
@@ -38,11 +35,11 @@ def dashboard():
 
 @app.route("/api/summary")
 def api_summary():
-    stats = traffic_analyzer.get_stats() if traffic_analyzer else {}
-    rl_stats = rate_limiter.get_stats() if rate_limiter else {}
-    ip_stats = ip_reputation.get_stats() if ip_reputation else {}
-    rule_count = len(rules_engine.rules) if rules_engine else 0
-    detection_mode = config.detection.get("mode", "log") if config else "log"
+    stats = ta.get_stats() if ta else {}
+    rl_stats = rl.get_stats() if rl else {}
+    ip_stats = ipr.get_stats() if ipr else {}
+    rule_count = len(eng.rules) if eng else 0
+    detection_mode = cfg.detection.get("mode", "log") if cfg else "log"
 
     log_stats = _log_summary()
     live_requests = stats.get("total_requests", 0)
@@ -74,10 +71,10 @@ def api_logs():
 
 @app.route("/api/rules")
 def api_rules():
-    if not rules_engine:
+    if not eng:
         return jsonify({"rules": []})
     rules = []
-    for r in rules_engine.rules:
+    for r in eng.rules:
         rules.append({
             "id": r["id"],
             "name": r.get("name", ""),
@@ -101,11 +98,10 @@ def api_attack_timeline():
             timeline[minute] += 1
 
     sorted_timeline = sorted(timeline.items())
-    return jsonify({
-        "timeline": [
-            {"time": t, "count": c} for t, c in sorted_timeline[-30:]
-        ]
-    })
+    out = []
+    for t, c in sorted_timeline[-30:]:
+        out.append({"time": t, "count": c})
+    return jsonify({"timeline": out})
 
 
 def _load_log_entries() -> list:
@@ -158,9 +154,9 @@ def _log_summary() -> dict:
     }
 
 
-def _get_log_path() -> Optional[Path]:
-    if config and config.logging:
-        log_path = config.logging.get("file")
+def _get_log_path():
+    if cfg and cfg.logging:
+        log_path = cfg.logging.get("file")
         if log_path:
             return Path(log_path)
     default = Path("sentinel-shield.log")
@@ -169,6 +165,6 @@ def _get_log_path() -> Optional[Path]:
     return None
 
 
-def create_app(cfg: Config) -> Flask:
-    init(cfg)
+def create_app(c) -> Flask:
+    init(c)
     return app

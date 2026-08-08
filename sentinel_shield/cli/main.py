@@ -1,19 +1,15 @@
 import asyncio
 import json
 import signal
-import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
-from typing import Optional
 
 import click
+import uvicorn
 
 from ..core.config import Config
-from ..core.engine import SentinelShield
 from ..api.server import create_api
 from ..proxy.proxy_server import ProxyServer
-
-import uvicorn
 
 
 @click.group()
@@ -97,15 +93,12 @@ def admin(config, host, port):
     from ..protection.ip_reputation import IPReputation
     from ..monitor.traffic_analyzer import TrafficAnalyzer
 
-    rules_engine = RulesEngine(cfg.rules_dir)
-    rate_limiter = RateLimiter(cfg.rate_limiter)
-    ip_reputation = IPReputation(cfg.ip_reputation)
-    traffic_analyzer = TrafficAnalyzer(cfg.traffic_analyzer)
+    eng = RulesEngine(cfg.rules_dir)
+    rl = RateLimiter(cfg.rate_limiter)
+    ipr = IPReputation(cfg.ip_reputation)
+    ta = TrafficAnalyzer(cfg.traffic_analyzer)
 
-    app = create_api(
-        cfg, rules_engine, rate_limiter,
-        ip_reputation, traffic_analyzer,
-    )
+    app = create_api(cfg, eng, rl, ipr, ta)
 
     click.echo(f"Admin API starting on {host}:{port}")
     uvicorn.run(app, host=host, port=port)
@@ -212,22 +205,24 @@ def _report_table(total, blocks, attack_types, top_ips, events):
 
 
 def _report_json(total, blocks, attack_types, top_ips, events):
+    recent = []
+    for e in events[-20:]:
+        recent.append({
+            "timestamp": e.get("timestamp", ""),
+            "client_ip": e.get("client_ip", ""),
+            "event": e.get("event", ""),
+            "attack_type": e.get("attack_type", "") or e.get("reason_type", ""),
+            "rule_id": e.get("rule_id", ""),
+        })
     data = {
         "total_requests": total,
         "total_blocks": blocks,
         "attack_distribution": dict(attack_types.most_common()),
-        "top_ips": [{"ip": ip, "count": c} for ip, c in top_ips],
-        "recent_events": [
-            {
-                "timestamp": e.get("timestamp", ""),
-                "client_ip": e.get("client_ip", ""),
-                "event": e.get("event", ""),
-                "attack_type": e.get("attack_type", "") or e.get("reason_type", ""),
-                "rule_id": e.get("rule_id", ""),
-            }
-            for e in events[-20:]
-        ],
+        "top_ips": [],
+        "recent_events": recent,
     }
+    for ip, count in top_ips:
+        data["top_ips"].append({"ip": ip, "count": count})
     click.echo(json.dumps(data, indent=2))
 
 
@@ -322,8 +317,7 @@ def rules(config, rule_id):
     click.echo(f"\nTotal: {len(rules_engine.rules)} rules")
 
 
-def _load_config(config_path: Optional[str]) -> Config:
-    from ..core.config import Config
+def _load_config(config_path):
     if config_path:
         return Config(Path(config_path))
     return Config()

@@ -1,6 +1,5 @@
 import time
 from collections import defaultdict
-from typing import Dict, List
 
 
 class TokenBucket:
@@ -8,16 +7,12 @@ class TokenBucket:
         self.rate = rate
         self.burst = burst
         self.tokens = burst
-        self.last_refill = time.monotonic()
+        self.last = time.monotonic()
 
     def allow(self) -> bool:
         now = time.monotonic()
-        elapsed = now - self.last_refill
-        self.tokens = min(
-            self.burst,
-            self.tokens + elapsed * self.rate
-        )
-        self.last_refill = now
+        self.tokens = min(self.burst, self.tokens + (now - self.last) * self.rate)
+        self.last = now
         if self.tokens >= 1:
             self.tokens -= 1
             return True
@@ -27,26 +22,20 @@ class TokenBucket:
 class RateLimiter:
     def __init__(self, config: dict):
         self.enabled = config.get("enabled", True)
-        self.requests_per_minute = config.get("requests_per_minute", 60)
-        self.burst_size = config.get("burst_size", 10)
-        self.buckets: Dict[str, TokenBucket] = defaultdict(
-            lambda: TokenBucket(
-                rate=self.requests_per_minute / 60.0,
-                burst=self.burst_size,
-            )
-        )
-        self.cleanup_interval = 300.0
+        self.per_min = config.get("requests_per_minute", 60)
+        self.burst = config.get("burst_size", 10)
+        self.buckets = defaultdict(lambda: TokenBucket(self.per_min / 60.0, self.burst))
         self._last_cleanup = time.monotonic()
 
-    def allow(self, client_ip: str) -> bool:
+    def allow(self, ip: str) -> bool:
         if not self.enabled:
             return True
         self._cleanup()
-        return self.buckets[client_ip].allow()
+        return self.buckets[ip].allow()
 
     def _cleanup(self):
         now = time.monotonic()
-        if now - self._last_cleanup < self.cleanup_interval:
+        if now - self._last_cleanup < 300.0:
             return
         self._last_cleanup = now
         stale = []
@@ -59,7 +48,7 @@ class RateLimiter:
     def get_stats(self) -> dict:
         return {
             "enabled": self.enabled,
-            "requests_per_minute": self.requests_per_minute,
-            "burst_size": self.burst_size,
+            "requests_per_minute": self.per_min,
+            "burst_size": self.burst,
             "active_clients": len(self.buckets),
         }

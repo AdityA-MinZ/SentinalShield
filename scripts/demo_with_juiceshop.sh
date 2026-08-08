@@ -9,13 +9,11 @@ echo "  SentinelShield + OWASP Juice Shop Demo"
 echo "============================================"
 echo ""
 
-# Check for Docker
 if ! command -v docker &> /dev/null; then
     echo "ERROR: Docker is required but not installed."
     exit 1
 fi
 
-# Check for docker-compose
 if ! command -v docker-compose &> /dev/null; then
     echo "ERROR: docker-compose is required but not installed."
     exit 1

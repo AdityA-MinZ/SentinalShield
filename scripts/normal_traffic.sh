@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# SentinelShield - Normal Traffic Simulation
-# Simulates legitimate user browsing to establish baseline traffic
-# Usage: ./normal_traffic.sh [target_url] [requests]
 
 TARGET="${1:-http://localhost:8080}"
 COUNT="${2:-20}"

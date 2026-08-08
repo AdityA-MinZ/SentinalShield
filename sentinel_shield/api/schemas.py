@@ -43,7 +43,7 @@ class ConfigResponse(BaseModel):
 
 class IPActionRequest(BaseModel):
     ip: str
-    action: str  # block | unblock | allow | remove_allow
+    action: str
 
 
 class IPActionResponse(BaseModel):

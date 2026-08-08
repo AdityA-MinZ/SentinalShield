@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# SentinelShield - Complete Student Exercise Runner
-# Orchestrates all practical exercises in sequence
-# Usage: ./run_all_exercises.sh [target_url]
 
 set -euo pipefail
 
@@ -23,7 +20,6 @@ echo "=== Exercise 1: Normal Traffic Baseline ==="
 echo ""
 
 echo "=== Exercise 2: Attack Simulation ==="
-# Do not abort if some simulated tests fail (e.g. missing upstream routes).
 "$SCRIPT_DIR/test_attacks.sh" "$TARGET" 2>&1 | tee "$LOG_DIR/test_attacks.log" || true
 echo ""
 

@@ -1,6 +1,5 @@
 import re
 from pathlib import Path
-from typing import List
 from urllib.parse import unquote_plus
 
 import yaml
@@ -10,9 +9,9 @@ class RulesEngine:
     def __init__(self, rules_dir: Path):
         self.rules_dir = rules_dir
         self.rules = []
-        self._load_rules()
+        self._load()
 
-    def _load_rules(self):
+    def _load(self):
         self.rules.clear()
         if not self.rules_dir.exists():
             return
@@ -20,72 +19,75 @@ class RulesEngine:
             with open(rule_file) as f:
                 data = yaml.safe_load(f)
                 if data and "rules" in data:
-                    file_attack_type = data.get("attack_type", "unknown")
+                    file_type = data.get("attack_type", "unknown")
                     for rule in data["rules"]:
                         rule["_file"] = rule_file.name
-                        rule.setdefault("attack_type", file_attack_type)
-                        rule["_compiled"] = [
-                            re.compile(p, re.IGNORECASE)
-                            for p in rule.get("patterns", [])
-                        ]
+                        rule.setdefault("attack_type", file_type)
+                        compiled = []
+                        for p in rule.get("patterns", []):
+                            compiled.append(re.compile(p, re.IGNORECASE))
+                        rule["_compiled"] = compiled
                         self.rules.append(rule)
 
-    def evaluate(self, request: dict) -> List[dict]:
-        matches = []
+    def evaluate(self, request: dict) -> list:
+        found = []
         for rule in self.rules:
-            result = self._match_rule(rule, request)
-            if result:
-                matches.append(result)
-        return matches
+            res = self._match(rule, request)
+            if res:
+                found.append(res)
+        return found
 
-    def _match_rule(self, rule: dict, request: dict) -> dict:
+    def _match(self, rule: dict, request: dict) -> dict:
         locations = rule.get("locations", ["query", "body"])
-        base_confidence = rule.get("confidence", 0.8)
+        base = rule.get("confidence", 0.8)
 
-        for location in locations:
-            payload = self._extract_payload(request, location)
+        for loc in locations:
+            payload = self._payload(request, loc)
             if not payload:
                 continue
 
-            for i, pattern_str in enumerate(rule.get("patterns", [])):
+            for i, p in enumerate(rule.get("patterns", [])):
                 compiled = rule["_compiled"][i]
-                match = compiled.search(payload)
-                if match:
+                m = compiled.search(payload)
+                if m:
                     return {
                         "rule_id": rule["id"],
                         "attack_type": rule.get("attack_type", "unknown"),
                         "name": rule.get("name", ""),
-                        "location": location,
-                        "confidence": rule.get("severity_weight", 1.0) * base_confidence,
-                        "payload": match.group()[:200],
-                        "matched": match.group(),
+                        "location": loc,
+                        "confidence": rule.get("severity_weight", 1.0) * base,
+                        "payload": m.group()[:200],
+                        "matched": m.group(),
                     }
         return {}
 
-    def _extract_payload(self, request: dict, location: str) -> str:
-        if location == "query":
+    def _payload(self, request: dict, loc: str) -> str:
+        if loc == "query":
             return unquote_plus(request.get("query", ""))
-        elif location == "body":
+        if loc == "body":
             return unquote_plus(request.get("body", ""))
-        elif location == "headers":
+        if loc == "headers":
             return str(request.get("headers", {}))
-        elif location == "cookies":
+        if loc == "cookies":
             return unquote_plus(request.get("cookies", ""))
-        elif location == "path":
+        if loc == "path":
             return unquote_plus(request.get("path", ""))
-        elif location == "uri":
+        if loc == "uri":
             return unquote_plus(request.get("uri", ""))
-        elif location == "all":
-            parts = [
-                unquote_plus(request.get("query", "")),
-                unquote_plus(request.get("body", "")),
-                str(request.get("headers", {})),
-                unquote_plus(request.get("cookies", "")),
-                unquote_plus(request.get("path", "")),
-                unquote_plus(request.get("uri", "")),
-            ]
-            return " ".join(p for p in parts if p)
+        if loc == "all":
+            parts = []
+            for key in ("query", "body", "headers", "cookies", "path", "uri"):
+                val = request.get(key, "")
+                if key == "headers":
+                    parts.append(str(val))
+                else:
+                    parts.append(unquote_plus(val))
+            out = []
+            for p in parts:
+                if p:
+                    out.append(p)
+            return " ".join(out)
         return ""
 
     def reload(self):
-        self._load_rules()
+        self._load()

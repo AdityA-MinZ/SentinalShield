@@ -2,7 +2,6 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
-from typing import Optional
 
 
 class JSONFormatter(logging.Formatter):
@@ -54,7 +53,7 @@ class Logger:
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
 
-    def _log(self, level: str, message: str, extra: Optional[dict] = None):
+    def _log(self, level: str, message: str, extra: dict = None):
         log_method = getattr(self.logger, level.lower(), self.logger.info)
         if extra:
             log_method(message, extra=extra)
@@ -100,5 +99,5 @@ class Logger:
             "error": error,
         })
 
-    def log_info(self, message: str, extra: Optional[dict] = None):
+    def log_info(self, message: str, extra: dict = None):
         self._log("INFO", message, extra)

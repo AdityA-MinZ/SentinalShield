@@ -1,15 +1,4 @@
 #!/usr/bin/env bash
-# SentinelShield - Brute Force / Rate Limit Simulation
-# Sends rapid requests to trigger the token-bucket rate limiter.
-#
-# Usage:
-#   ./brute_force.sh                     # self-contained demo (recommended)
-#   ./brute_force.sh http://host:8080 30 0.05   # target an existing proxy
-#
-# NOTE: 127.0.0.1 is allowlisted by default and therefore bypasses rate
-# limiting. To get a meaningful demo, this script starts a dedicated proxy
-# instance with rate limiting enabled and an EMPTY allowlist, runs the
-# brute-force loop against it, then cleans up.
 
 set -euo pipefail
 

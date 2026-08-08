@@ -1,6 +1,5 @@
-import os
 from pathlib import Path
-from typing import Optional
+
 import yaml
 
 from .exceptions import ConfigError
@@ -9,11 +8,11 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent.parent.parent / "sentinel-shield.yml
 
 
 class Config:
-    def __init__(self, path: Optional[Path] = None):
+    def __init__(self, path: Path = None):
         self._config_path = path or DEFAULT_CONFIG_PATH
-        self._data = self._load(self._config_path)
+        self._data = self._read(self._config_path)
 
-    def _load(self, path: Path) -> dict:
+    def _read(self, path: Path) -> dict:
         if not path.exists():
             raise ConfigError(f"Config file not found: {path}")
         with open(path) as f:
@@ -49,15 +48,14 @@ class Config:
 
     @property
     def rules_dir(self) -> Path:
-        rules_dir = self.detection.get("rules_dir", "rules")
-        path = Path(rules_dir)
-        if not path.is_absolute():
-            path = Path(__file__).parent.parent / "detection" / rules_dir
-        return path
+        rd = self.detection.get("rules_dir", "rules")
+        p = Path(rd)
+        if not p.is_absolute():
+            p = Path(__file__).parent.parent / "detection" / rd
+        return p
 
     def reload(self):
-        path = self._config_path
-        self._data = self._load(path)
+        self._data = self._read(self._config_path)
 
     def to_dict(self) -> dict:
         return self._data

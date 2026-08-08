@@ -1,5 +1,4 @@
 import time
-from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -46,8 +45,9 @@ def create_api(
 
     @app.get("/rules", response_model=RuleListResponse)
     async def list_rules():
-        rules = [
-            RuleInfo(
+        rules = []
+        for r in rules_engine.rules:
+            rules.append(RuleInfo(
                 id=r["id"],
                 name=r.get("name", ""),
                 attack_type=r.get("attack_type", ""),
@@ -55,9 +55,7 @@ def create_api(
                 locations=r.get("locations", []),
                 action=r.get("action", "block"),
                 pattern_count=len(r.get("patterns", [])),
-            )
-            for r in rules_engine.rules
-        ]
+            ))
         return RuleListResponse(count=len(rules), rules=rules)
 
     @app.get("/config", response_model=ConfigResponse)

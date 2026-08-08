@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# SentinelShield - Student Attack Simulation Script
-# Usage: ./test_attacks.sh [target_url]
-# Default target: http://localhost:8080
 
 set -euo pipefail
 
