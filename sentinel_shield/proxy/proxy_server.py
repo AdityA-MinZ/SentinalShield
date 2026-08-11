@@ -45,6 +45,10 @@ class ProxyServer:
         status_code = 200
 
         try:
+            # 0) Health check for Render.
+            if path == "/healthz":
+                return web.Response(status=200, body=b'{"status":"ok"}')
+
             # 1) Blocked IP?
             if not self.ip_reputation.is_allowed(client_ip):
                 self.logger.log_block(client_ip, path, "BlockedIP", "IP is blocked")

@@ -5,6 +5,7 @@ section. Sections are returned as plain dicts, e.g.:
     config.rate_limiter.get("requests_per_minute")
 """
 
+import os
 from pathlib import Path
 
 import yaml
@@ -31,7 +32,29 @@ class Config:
         if not path.exists():
             raise ConfigError(f"Config file not found: {path}")
         with open(path) as f:
-            return yaml.safe_load(f) or {}
+            data = yaml.safe_load(f) or {}
+
+        data.setdefault("server", {})
+        data.setdefault("detection", {})
+
+        port = os.environ.get("PORT")
+        if port:
+            data["server"]["port"] = int(port)
+        target_url = os.environ.get("TARGET_URL")
+        if target_url:
+            data["server"]["upstream"] = target_url
+        host = os.environ.get("HOST")
+        if host:
+            data["server"]["host"] = host
+        detection_mode = os.environ.get("DETECTION_MODE")
+        if detection_mode:
+            data["detection"]["mode"] = detection_mode
+
+        upstream = data["server"].get("upstream")
+        if upstream and not upstream.startswith(("http://", "https://")):
+            data["server"]["upstream"] = f"http://{upstream}"
+
+        return data
 
     def set(self, section, key, value):
         """Change one setting, e.g. Config.set("server", "port", 8080)."""

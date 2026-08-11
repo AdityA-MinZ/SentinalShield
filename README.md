@@ -98,6 +98,37 @@ http://localhost:8080
 
 Opening `http://localhost:3000` bypasses SentinelShield and accesses Juice Shop directly.
 
+## Deploying to Render
+
+Juice Shop and Sentinel Shield are two separate apps, so they need two separate
+Render services. The public service is the Sentinel Shield proxy. Juice Shop
+runs behind it and is only reached through the proxy.
+
+```text
+Client
+   |
+   v
+Sentinel Shield proxy
+   |
+   v  TARGET_URL
+Juice Shop
+```
+
+The repo has a `render.yaml` file that creates both services: Juice Shop as a
+private service and Sentinel Shield as the public web service.
+
+To deploy manually:
+
+1. Create a Juice Shop service from the Docker image `bkimminich/juice-shop`.
+2. Create a Sentinel Shield service with start command `sentinel-shield proxy`.
+3. Set the `TARGET_URL` environment variable on Sentinel Shield to the Juice
+   Shop URL, for example `https://your-juice-shop-service.onrender.com`.
+4. Sentinel Shield listens on `0.0.0.0:$PORT`, so it uses the port that Render
+   provides. The health check path is `/healthz`.
+
+Do not set `TARGET_URL` to `http://localhost:3000`. On Render that address
+points inside the Sentinel Shield container, not the Juice Shop service.
+
 ## View logs
 
 To watch the proxy logs:

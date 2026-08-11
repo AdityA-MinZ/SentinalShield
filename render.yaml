@@ -1,0 +1,23 @@
+services:
+  - type: pserv
+    name: juice-shop
+    runtime: docker
+    dockerfilePath: ./juiceshop/Dockerfile
+    plan: free
+    region: oregon
+
+  - type: web
+    name: sentinel-shield-proxy
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /healthz
+    envVars:
+      - key: TARGET_URL
+        fromService:
+          name: juice-shop
+          type: pserv
+          property: hostport
+      - key: DETECTION_MODE
+        value: block
