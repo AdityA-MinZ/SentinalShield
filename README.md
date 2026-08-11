@@ -101,8 +101,10 @@ Opening `http://localhost:3000` bypasses SentinelShield and accesses Juice Shop 
 ## Deploying to Render
 
 Juice Shop and Sentinel Shield are two separate apps, so they need two separate
-Render services. The public service is the Sentinel Shield proxy. Juice Shop
-runs behind it and is only reached through the proxy.
+Render services. Sentinel Shield is the proxy in front, and Juice Shop runs
+behind it. Ideally Juice Shop would be a private service (no public URL), but
+private services are not available on Render's free plan, so on a free plan
+Juice Shop is also a public web service.
 
 ```text
 Client
@@ -114,8 +116,8 @@ Sentinel Shield proxy
 Juice Shop
 ```
 
-The repo has a `render.yaml` file that creates both services: Juice Shop as a
-private service and Sentinel Shield as the public web service.
+The repo has a `render.yaml` file that creates both services as web services
+and sets `TARGET_URL` automatically.
 
 To deploy manually:
 

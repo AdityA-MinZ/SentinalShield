@@ -168,4 +168,10 @@ class ProxyServer:
         site = web.TCPSite(runner, host, port)
         await site.start()
         print(f"SentinelShield proxy on {host}:{port} -> {self.upstream}")
+        if self.upstream == "http://localhost:3000":
+            print(
+                "WARNING: forwarding to http://localhost:3000. On Render that is the "
+                "proxy's own container, not Juice Shop. Set the TARGET_URL env var to "
+                "the Juice Shop service URL."
+            )
         return runner

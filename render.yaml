@@ -1,10 +1,11 @@
 services:
-  - type: pserv
+  - type: web
     name: juice-shop
     runtime: docker
     dockerfilePath: ./juiceshop/Dockerfile
     plan: free
     region: oregon
+    healthCheckPath: /
 
   - type: web
     name: sentinel-shield-proxy
@@ -17,7 +18,7 @@ services:
       - key: TARGET_URL
         fromService:
           name: juice-shop
-          type: pserv
+          type: web
           property: hostport
       - key: DETECTION_MODE
         value: block
