@@ -1,32 +1,32 @@
 # SentinelShield
 
-SentinelShield is a small web security project that works as a reverse proxy and a basic Web Application Firewall (WAF).
+SentinelShield is a small web security project I built for a college assignment. It sits in front of a website and checks every request before letting it through. It is basically a basic Web Application Firewall (WAF) and a reverse proxy in one.
 
-I made this project to understand how web requests can be checked before they reach an application. For the demo, I used OWASP Juice Shop as the application behind the proxy.
+I used OWASP Juice Shop as the website behind it, because Juice Shop is a deliberately insecure app that is made for testing security tools.
 
 ## What it does
 
-SentinelShield checks incoming HTTP requests and can:
+SentinelShield looks at each incoming request and:
 
-- Detect common suspicious requests.
-- Block requests that match security rules.
-- Allow normal requests to pass to the application.
-- Apply rate limiting to repeated requests.
-- Record request and security events in JSON logs.
-- Show useful information such as the request IP, category, rule ID, status code, and time.
+- Detects suspicious requests (things that look like attacks).
+- Blocks requests that match a security rule.
+- Lets normal requests pass through to the app.
+- Slows down users who send too many requests (rate limiting).
+- Writes every request and security event to a JSON log.
+- Shows useful details like the IP address, attack type, rule ID, status code, and time.
 
-The current rules cover examples of:
+The rules it comes with cover examples of:
 
 - SQL injection
 - Cross-site scripting (XSS)
-- Local file inclusion and path traversal
+- Local file inclusion (LFI) and path traversal
 - Server-side request forgery (SSRF)
 - Command injection
 - Suspicious file uploads
 
-This is mainly an educational project and should not be treated as a production WAF without more testing.
+This is an educational project, not a production WAF. It should not be used to protect a real website without a lot more testing.
 
-## Basic architecture
+## How it works
 
 ```text
 Browser or curl
@@ -38,29 +38,29 @@ SentinelShield proxy :8080
 OWASP Juice Shop :3000
 ```
 
-The proxy checks the request first. If it looks normal, it forwards the request to Juice Shop. If a rule is matched, it returns a block response instead of forwarding the request.
+The proxy checks the request first. If the request looks normal, it forwards it to Juice Shop. If the request matches an attack rule, it returns a block response instead of forwarding it.
 
 ## Technologies used
 
 - Python
-- aiohttp
+- aiohttp (the proxy server)
 - Docker and Docker Compose
-- YAML configuration
-- Regular-expression based detection rules
+- YAML for configuration
+- Regular-expression based rules for detection
 - JSONL logging
 - OWASP Juice Shop for testing
 
-## Run the project
+## Run it on your laptop
 
-### Requirements
+### What you need
 
 - Docker Desktop
 - Git
 - A terminal
 
-### Start the containers
+### Steps
 
-Clone the repository and enter the project directory:
+Clone the repository and go into the folder:
 
 ```bash
 git clone https://github.com/AdityA-MinZ/SentinalShield.git
@@ -79,32 +79,28 @@ To run it in the background:
 docker compose up -d --build
 ```
 
-Check the containers:
+Check that the containers are running:
 
 ```bash
 docker compose ps
 ```
 
-The normal setup uses these ports:
+The ports used are:
 
-- `3000` - Juice Shop directly
+- `3000` - Juice Shop directly (bypasses SentinelShield)
 - `8080` - Juice Shop through SentinelShield
 
-Open the protected application here:
+Open the protected app here:
 
 ```text
 http://localhost:8080
 ```
 
-Opening `http://localhost:3000` bypasses SentinelShield and accesses Juice Shop directly.
+## Deploy it to Render
 
-## Deploying to Render
+Juice Shop and SentinelShield are two different apps, so they need two separate services on Render. Do not try to run both from one service with two start commands.
 
-Juice Shop and Sentinel Shield are two separate apps, so they need two separate
-Render services. Sentinel Shield is the proxy in front, and Juice Shop runs
-behind it. Ideally Juice Shop would be a private service (no public URL), but
-private services are not available on Render's free plan, so on a free plan
-Juice Shop is also a public web service.
+The layout looks like this:
 
 ```text
 Client
@@ -116,60 +112,69 @@ Sentinel Shield proxy
 Juice Shop
 ```
 
-The repo has a `render.yaml` file that creates both services as web services
-and sets `TARGET_URL` automatically.
+### The easy way (use the blueprint)
 
-To deploy manually:
+The repository has a `render.yaml` file. On Render, go to **New → Blueprint**, pick this repository, and it creates both web services for you:
 
-1. Create a Juice Shop service from the Docker image `bkimminich/juice-shop`.
-2. Create a Sentinel Shield service with start command `sentinel-shield proxy`.
-3. Set the `TARGET_URL` environment variable on Sentinel Shield to the Juice
-   Shop URL, for example `https://your-juice-shop-service.onrender.com`.
-4. Sentinel Shield listens on `0.0.0.0:$PORT`, so it uses the port that Render
-   provides. The health check path is `/healthz`.
+- `juice-shop` - the Juice Shop app
+- `sentinel-shield-proxy` - the public proxy
 
-Do not set `TARGET_URL` to `http://localhost:3000`. On Render that address
-points inside the Sentinel Shield container, not the Juice Shop service.
+After the blueprint runs, you still need to set `TARGET_URL` (see the next section), because the free plan does not let Render work out the Juice Shop URL automatically.
 
-## View logs
+### The manual way
 
-To watch the proxy logs:
+1. Create a Juice Shop service. Use the Docker image `bkimminich/juice-shop` (or the `juiceshop/Dockerfile` in this repo).
+2. Create a Sentinel Shield service with the start command `sentinel-shield proxy`.
+3. Add the `TARGET_URL` environment variable to the Sentinel Shield service.
+4. Set `TARGET_URL` to the public URL of the Juice Shop service, for example:
 
-```bash
-docker compose logs -f sentinel-shield
+   ```text
+   https://juice-shop-4kr8.onrender.com
+   ```
+
+5. Sentinel Shield listens on `0.0.0.0:$PORT`, so it automatically uses the port Render gives it. The health check path is `/healthz`.
+
+### Important: do not use localhost:3000
+
+Do not set `TARGET_URL` to `http://localhost:3000`. On Render, `localhost` means the inside of the Sentinel Shield container itself, and there is nothing running there. So the proxy would try to forward requests to itself and fail.
+
+I also tried using Render's internal service name (like `juice-shop:10000`), but that did not work on the free plan either. The public URL of the Juice Shop service is the reliable option.
+
+## Use it online
+
+The live version of the project is:
+
+```text
+https://sentinel-shield-proxy.onrender.com
 ```
 
-The logs contain information about normal access, detected attacks, blocks, and rate-limit events. The project also contains saved examples in the `evidence/` directory.
+Open that link in a browser and you should see the Juice Shop app, but every request goes through SentinelShield first.
 
-## Test normal traffic
-
-```bash
-curl -i http://localhost:8080/
-```
-
-A normal request should normally be forwarded and return a successful response from Juice Shop.
-
-## Test detection
-
-These tests are intended only for the local Juice Shop lab.
-
-### SQL injection example
+### Test normal traffic
 
 ```bash
-curl -G -i \\
-  --data-urlencode "q=' OR '1'='1" \\
-  http://localhost:8080/rest/products/search
+curl -i https://sentinel-shield-proxy.onrender.com/
 ```
 
-### XSS example
+A normal request should be forwarded and come back with a successful response from Juice Shop.
+
+### Test detection (SQL injection)
 
 ```bash
-curl -G -i \\
-  --data-urlencode "q=<script>alert(1)</script>" \\
-  http://localhost:8080/rest/products/search
+curl -G -i \
+  --data-urlencode "q=' OR '1'='1" \
+  https://sentinel-shield-proxy.onrender.com/rest/products/search
 ```
 
-A blocked request should return a response similar to:
+### Test detection (XSS)
+
+```bash
+curl -G -i \
+  --data-urlencode "q=<script>alert(1)</script>" \
+  https://sentinel-shield-proxy.onrender.com/rest/products/search
+```
+
+A blocked request should come back something like:
 
 ```text
 HTTP/1.1 403 Forbidden
@@ -178,22 +183,34 @@ X-SentinelShield: blocked
 
 The response body contains the reason for the block.
 
-## Test rate limiting
+### Test rate limiting
 
-The rate limiter uses a token-bucket style approach. The current main configuration uses a rate limit of 50 requests per minute with a burst limit of 20.
-
-Run a small local test:
+The rate limiter allows 50 requests per minute with a burst of 20. This loop sends 25 requests quickly:
 
 ```bash
 for i in {1..25}; do
-  curl -s -o /dev/null -w "request=$i status=%{http_code}\\n" \\
-    -G \\
-    --data-urlencode 'q=test' \\
-    http://localhost:8080/rest/products/search
+  curl -s -o /dev/null -w "request=$i status=%{http_code}\n" \
+    -G \
+    --data-urlencode 'q=test' \
+    https://sentinel-shield-proxy.onrender.com/rest/products/search
 done
 ```
 
-After the available burst is used, some requests should return HTTP `429` when rate limiting is reached. The exact number of successful requests can change if the browser has already used some tokens or if refill tokens arrive during the test.
+After the burst is used up, some requests should return `429`. The exact number can change if tokens refill during the test.
+
+The same test commands work locally too, just replace the URL with `http://localhost:8080`.
+
+## View logs
+
+To watch the proxy logs on your laptop:
+
+```bash
+docker compose logs -f sentinel-shield
+```
+
+On Render, open the `sentinel-shield-proxy` service and go to the **Logs** tab.
+
+The logs show normal access, detected attacks, blocks, and rate-limit events. There are also saved example logs in the `evidence/` folder.
 
 ## Project folders
 
@@ -211,14 +228,14 @@ sentinel_shield/
 evidence/        saved logs, reports, and summary tables
 scripts/         test and traffic scripts
 tests/           project tests
-docs/             project documentation
+docs/            project documentation
 ```
 
 ## Practical results
 
-During the local testing, the project blocked test requests for SQL injection, XSS, LFI, SSRF, path traversal, and command injection. Normal control requests were allowed.
+During local testing, the project blocked test requests for SQL injection, XSS, LFI, SSRF, path traversal, and command injection. Normal control requests were allowed through.
 
-The evidence folder contains the detailed logs and tables used for the practical report, including:
+The `evidence/` folder contains the logs and tables I used for the practical report, including:
 
 - Attack request results.
 - Normal traffic results.
@@ -227,28 +244,34 @@ The evidence folder contains the detailed logs and tables used for the practical
 - Summary tables.
 - Practical report files.
 
-The test results are for the local test setup and should not be interpreted as a complete security audit.
+These results are from the local test setup only. They are not a full security audit.
 
 ## Known limitations
 
-- The rate limiter currently works in memory, so it is not shared between multiple application instances.
-- Docker networking can make several local requests appear to come from the same bridge IP.
-- Signature-based rules can sometimes overlap or create false positives.
-- More testing is needed for encoded payloads and unusual request formats.
-- Juice Shop is intentionally insecure and should not be exposed publicly without proper isolation and access control.
+- The rate limiter works in memory, so it is not shared between multiple instances.
+- Docker networking can make several local requests look like they come from the same bridge IP.
+- The rules are signature-based, so they can overlap or create false positives.
+- Encoded payloads and unusual request formats need more testing.
+- Juice Shop is intentionally insecure and should not be exposed publicly without proper access control.
 
-## Documentation and links
+## Links
+
+Live deployment:
+
+```text
+https://sentinel-shield-proxy.onrender.com
+```
+
+Juice Shop service:
+
+```text
+https://juice-shop-4kr8.onrender.com
+```
 
 Detailed project report:
 
 ```text
 [Add your public report link here]
-```
-
-Project deployment:
-
-```text
-[Add your public deployment link here]
 ```
 
 Project feedback video:
@@ -259,7 +282,7 @@ Project feedback video:
 
 ## What I learned
 
-This project helped me understand how a reverse proxy can be placed in front of a web application and how security checks can be applied before forwarding requests. I also learned about rule matching, rate limiting, JSON logging, Docker networking, false positives, and the importance of testing normal traffic as well as attack traffic.
+This project taught me how a reverse proxy can sit in front of a web app and check requests before they reach it. I learned about rule matching, rate limiting, JSON logging, Docker networking, false positives, and why it is important to test normal traffic as well as attack traffic. I also learned how to deploy two separate services to Render and connect them with an environment variable.
 
 ## License
 
