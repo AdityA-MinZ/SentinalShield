@@ -20,6 +20,12 @@ from ..protection.ip_reputation import IPReputation
 from ..protection.rate_limiter import RateLimiter
 
 
+_STATIC_EXTENSIONS = frozenset({
+    ".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg",
+    ".ico", ".woff", ".woff2", ".ttf", ".eot", ".map",
+})
+
+
 class ProxyServer:
     def __init__(self, config):
         self.config = config
@@ -57,8 +63,9 @@ class ProxyServer:
                 status_code = 403
                 return web.Response(status=403, body=b'{"error":"blocked"}')
 
-            # 2) Too many requests?
-            if not self.ip_reputation.is_allowlisted(client_ip) and not self.rate_limiter.allow(client_ip):
+            # 2) Too many requests?  Static assets are exempt.
+            ext = os.path.splitext(path)[1].lower()
+            if ext not in _STATIC_EXTENSIONS and not self.ip_reputation.is_allowlisted(client_ip) and not self.rate_limiter.allow(client_ip):
                 self.logger.log_block(client_ip, path, "RateLimitExceeded", "Rate limit exceeded")
                 status_code = 429
                 return web.Response(status=429, body=b'{"error":"rate_limited"}')
