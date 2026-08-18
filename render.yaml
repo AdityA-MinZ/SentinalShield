@@ -16,6 +16,8 @@ services:
     healthCheckPath: /healthz
     envVars:
       - key: TARGET_URL
-        sync: false
+        fromService:
+          name: juice-shop
+          type: web
       - key: DETECTION_MODE
         value: block

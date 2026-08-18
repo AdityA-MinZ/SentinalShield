@@ -5,6 +5,7 @@ It runs the same checks as the WSGI middleware (blocked IP, rate limit,
 attack rules) and then forwards clean requests to the upstream server.
 """
 
+import os
 import time
 
 import aiohttp
@@ -153,7 +154,6 @@ class ProxyServer:
             "connection", "keep-alive", "proxy-authenticate",
             "proxy-authorization", "te", "trailers",
             "transfer-encoding", "upgrade",
-            "content-length", "content-encoding",
         }
         clean = CIMultiDict()
         for key, value in response.headers.items():
@@ -169,7 +169,7 @@ class ProxyServer:
         site = web.TCPSite(runner, host, port)
         await site.start()
         print(f"SentinelShield proxy on {host}:{port} -> {self.upstream}")
-        if self.upstream == "http://localhost:3000":
+        if self.upstream == "http://localhost:3000" and not os.environ.get("TARGET_URL"):
             print(
                 "WARNING: forwarding to http://localhost:3000. On Render that is the "
                 "proxy's own container, not Juice Shop. Set the TARGET_URL env var to "
