@@ -10,14 +10,15 @@ If the request passes all checks it is forwarded to the real app.
 
 import time
 
-from .config import Config, config as default_config
-from .exceptions import AttackDetected, BlockedIP, RateLimitExceeded
 from ..detection.rules_engine import RulesEngine
-from ..protection.rate_limiter import RateLimiter
-from ..protection.ip_reputation import IPReputation
-from ..protection.sanitizer import Sanitizer
-from ..monitor.traffic_analyzer import TrafficAnalyzer
 from ..monitor.logger import Logger
+from ..monitor.traffic_analyzer import TrafficAnalyzer
+from ..protection.ip_reputation import IPReputation
+from ..protection.rate_limiter import RateLimiter
+from ..protection.sanitizer import Sanitizer
+from .config import config as default_config
+from .exceptions import AttackDetected, BlockedIP, RateLimitExceeded
+from .utils import get_client_ip_from_headers
 
 
 class SentinelShield:
@@ -34,7 +35,12 @@ class SentinelShield:
 
     def __call__(self, environ, start_response):
         start_time = time.monotonic()
-        client_ip = environ.get("REMOTE_ADDR", "unknown")
+        forwarded = {
+            k[5:].replace("_", "-").lower(): v
+            for k, v in environ.items()
+            if k.startswith("HTTP_")
+        }
+        client_ip = get_client_ip_from_headers(forwarded, environ.get("REMOTE_ADDR", "unknown"))
         method = environ.get("REQUEST_METHOD", "GET")
         path = environ.get("PATH_INFO", "/")
         status_code = 200

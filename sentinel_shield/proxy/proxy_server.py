@@ -11,12 +11,12 @@ import aiohttp
 from aiohttp import web
 from multidict import CIMultiDict
 
-from ..core.config import Config
+from ..core.utils import get_client_ip_from_headers
 from ..detection.rules_engine import RulesEngine
-from ..protection.rate_limiter import RateLimiter
-from ..protection.ip_reputation import IPReputation
-from ..monitor.traffic_analyzer import TrafficAnalyzer
 from ..monitor.logger import Logger
+from ..monitor.traffic_analyzer import TrafficAnalyzer
+from ..protection.ip_reputation import IPReputation
+from ..protection.rate_limiter import RateLimiter
 
 
 class ProxyServer:
@@ -38,7 +38,8 @@ class ProxyServer:
         return self.app
 
     async def _handle_request(self, request):
-        client_ip = request.remote or "127.0.0.1"
+        lower_headers = {k.lower(): v for k, v in request.headers.items()}
+        client_ip = get_client_ip_from_headers(lower_headers, request.remote or "127.0.0.1")
         method = request.method
         path = request.path
         start_time = time.monotonic()

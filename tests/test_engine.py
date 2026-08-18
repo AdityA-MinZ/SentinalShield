@@ -59,11 +59,12 @@ def config(rules_dir):
 
 
 def make_env(method="GET", path="/", query="", body="",
-             content_type="", remote="127.0.0.1"):
+             content_type="", remote="127.0.0.1", forwarded_for=None,
+             real_ip=None):
     body_bytes = body.encode()
     wsgi_input = MagicMock()
     wsgi_input.read = Mock(return_value=body_bytes)
-    return {
+    env = {
         "REQUEST_METHOD": method,
         "PATH_INFO": path,
         "QUERY_STRING": query,
@@ -75,6 +76,11 @@ def make_env(method="GET", path="/", query="", body="",
         "SERVER_NAME": "test",
         "SERVER_PORT": "80",
     }
+    if forwarded_for is not None:
+        env["HTTP_X_FORWARDED_FOR"] = forwarded_for
+    if real_ip is not None:
+        env["HTTP_X_REAL_IP"] = real_ip
+    return env
 
 
 def wsgi_app_success(environ, start_response):
@@ -384,3 +390,99 @@ def test_command_injection_blocked():
         assert start.called
         status_line = start.call_args[0][0]
         assert "403" in status_line
+
+
+def test_get_client_ip_from_xff():
+    from sentinel_shield.core.utils import get_client_ip_from_headers
+    result = get_client_ip_from_headers({"x-forwarded-for": "203.0.113.50, 70.41.3.18"})
+    assert result == "203.0.113.50"
+
+
+def test_get_client_ip_from_xff_single():
+    from sentinel_shield.core.utils import get_client_ip_from_headers
+    result = get_client_ip_from_headers({"x-forwarded-for": "198.51.100.1"})
+    assert result == "198.51.100.1"
+
+
+def test_get_client_ip_from_x_real_ip():
+    from sentinel_shield.core.utils import get_client_ip_from_headers
+    result = get_client_ip_from_headers({"x-real-ip": "198.51.100.2"})
+    assert result == "198.51.100.2"
+
+
+def test_get_client_ip_xff_takes_priority():
+    from sentinel_shield.core.utils import get_client_ip_from_headers
+    result = get_client_ip_from_headers({
+        "x-forwarded-for": "203.0.113.50",
+        "x-real-ip": "198.51.100.1",
+    })
+    assert result == "203.0.113.50"
+
+
+def test_get_client_ip_fallback():
+    from sentinel_shield.core.utils import get_client_ip_from_headers
+    result = get_client_ip_from_headers({}, "10.0.0.1")
+    assert result == "10.0.0.1"
+
+
+def test_get_client_ip_default_fallback():
+    from sentinel_shield.core.utils import get_client_ip_from_headers
+    result = get_client_ip_from_headers({})
+    assert result == "127.0.0.1"
+
+
+def test_rate_limit_applies_to_forwarded_ip(config):
+    config.ip_reputation = {
+        "enabled": True,
+        "blocklist": [],
+        "allowlist": ["127.0.0.1", "::1"],
+    }
+    config.rate_limiter = {
+        "enabled": True,
+        "requests_per_minute": 60,
+        "burst_size": 1,
+    }
+    app = Mock(wraps=wsgi_app_success)
+    waf = SentinelShield(app, config)
+
+    env = make_env(remote="127.0.0.1", forwarded_for="203.0.113.50")
+    start = Mock()
+
+    waf(env, start)
+    assert app.called
+
+    app.reset_mock()
+    start.reset_mock()
+
+    waf(env, start)
+    assert not app.called
+    assert start.called
+    status_line = start.call_args[0][0]
+    assert "429" in status_line
+
+
+def test_allowlist_uses_forwarded_ip(config):
+    config.ip_reputation = {
+        "enabled": True,
+        "blocklist": [],
+        "allowlist": ["203.0.113.50"],
+    }
+    config.rate_limiter = {
+        "enabled": True,
+        "requests_per_minute": 60,
+        "burst_size": 1,
+    }
+    app = Mock(wraps=wsgi_app_success)
+    waf = SentinelShield(app, config)
+
+    env = make_env(remote="127.0.0.1", forwarded_for="203.0.113.50")
+    start = Mock()
+
+    waf(env, start)
+    assert app.called
+
+    app.reset_mock()
+    start.reset_mock()
+
+    waf(env, start)
+    assert app.called
