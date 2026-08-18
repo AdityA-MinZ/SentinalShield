@@ -15,7 +15,7 @@ detection:
 
 rate_limiter:
   enabled: true
-  requests_per_minute: 50
+  requests_per_minute: 25
   burst_size: 20
 
 ip_reputation:
