@@ -160,7 +160,7 @@ class ProxyServer:
         skip = {
             "connection", "keep-alive", "proxy-authenticate",
             "proxy-authorization", "te", "trailers",
-            "transfer-encoding", "upgrade",
+            "transfer-encoding", "upgrade", "content-encoding",
         }
         clean = CIMultiDict()
         for key, value in response.headers.items():
