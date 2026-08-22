@@ -2,53 +2,43 @@
 
 | Time | IP | Method | Path | Status | Result | Attack | Rule |
 |------|----|--------|------|--------|--------|--------|------|
-| 13:12:42 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:42 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:42 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:43 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:43 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:43 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:43 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:43 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:44 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
-| 13:12:45 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:34 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:35 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:35 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:36 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:36 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:36 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:36 | 127.0.0.1 | GET | /login | 200 | ALLOWED |  |  |
+| 11:07:36 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:36 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
+| 11:07:36 | 127.0.0.1 | GET | /login | 429 | RATE LIMITED | rate_limit | RateLimitExceeded |
 
 ## Summary
 
-- **Total requests:** 40
+- **Total requests:** 30
 - **Allowed:** 12
 - **Blocked:** 0
-- **Rate limited:** 28
+- **Rate limited:** 18
 
 ## Attacks by Category
 
@@ -59,4 +49,4 @@
 
 | IP | Requests |
 |----|----------|
-| 127.0.0.1 | 40 |
+| 127.0.0.1 | 30 |

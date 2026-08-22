@@ -32,26 +32,26 @@
 
 --- Path Traversal Tests ---
   [PASS] Encoded traversal (%2e%2e%2f) (HTTP 403)
-  [PASS] Double-encoded traversal (%252e) (HTTP 403)
+  [FAIL] Double-encoded traversal (%252e) (expected 403, got 429)
 
 --- Command Injection Tests ---
-  [PASS] Shell metacharacter (;whoami) (HTTP 403)
-  [PASS] Command keyword (ls -la) (HTTP 403)
-  [PASS] AND chained command (&&cat) (HTTP 403)
-  [PASS] Piped reverse shell (|nc) (HTTP 403)
-  [PASS] Command substitution ($(whoami)) (HTTP 403)
-  [PASS] IFS whitespace bypass (HTTP 403)
-  [PASS] Interpreter invocation (sh -c) (HTTP 403)
-  [PASS] Windows shell (cmd.exe /c) (HTTP 403)
-  [PASS] Encoded newline command (HTTP 403)
+  [FAIL] Shell metacharacter (;whoami) (expected 403, got 429)
+  [FAIL] Command keyword (ls -la) (expected 403, got 429)
+  [FAIL] AND chained command (&&cat) (expected 403, got 429)
+  [FAIL] Piped reverse shell (|nc) (expected 403, got 429)
+  [FAIL] Command substitution ($(whoami)) (expected 403, got 429)
+  [FAIL] IFS whitespace bypass (expected 403, got 429)
+  [FAIL] Interpreter invocation (sh -c) (expected 403, got 429)
+  [FAIL] Windows shell (cmd.exe /c) (expected 403, got 429)
+  [FAIL] Encoded newline command (expected 403, got 429)
 
 --- Normal Request Tests (should pass) ---
-  [PASS] Normal homepage request (HTTP 200)
-  [PASS] Normal search query (HTTP 200)
-  [PASS] Normal path request (HTTP 200)
+  [FAIL] Normal homepage request (expected 200, got 429)
+  [FAIL] Normal search query (expected 200, got 429)
+  [FAIL] Normal path request (expected 200, got 429)
 
 ============================================
-  Results: 33 passed, 0 failed
+  Results: 20 passed, 13 failed
 ============================================
 
 Detailed Results:
@@ -77,16 +77,16 @@ PASS    Cloud metadata (169.254.169.254)                   403
 PASS    Internal hostname (localhost)                      403
 PASS    Private IP (192.168.1.1)                           403
 PASS    Encoded traversal (%2e%2e%2f)                      403
-PASS    Double-encoded traversal (%252e)                   403
-PASS    Shell metacharacter (;whoami)                      403
-PASS    Command keyword (ls -la)                           403
-PASS    AND chained command (&&cat)                        403
-PASS    Piped reverse shell (                              nc)|403
-PASS    Command substitution ($(whoami))                   403
-PASS    IFS whitespace bypass                              403
-PASS    Interpreter invocation (sh -c)                     403
-PASS    Windows shell (cmd.exe /c)                         403
-PASS    Encoded newline command                            403
-PASS    Normal homepage request                            200
-PASS    Normal search query                                200
-PASS    Normal path request                                200
+FAIL    Double-encoded traversal (%252e)                   429
+FAIL    Shell metacharacter (;whoami)                      429
+FAIL    Command keyword (ls -la)                           429
+FAIL    AND chained command (&&cat)                        429
+FAIL    Piped reverse shell (                              nc)|429
+FAIL    Command substitution ($(whoami))                   429
+FAIL    IFS whitespace bypass                              429
+FAIL    Interpreter invocation (sh -c)                     429
+FAIL    Windows shell (cmd.exe /c)                         429
+FAIL    Encoded newline command                            429
+FAIL    Normal homepage request                            429
+FAIL    Normal search query                                429
+FAIL    Normal path request                                429

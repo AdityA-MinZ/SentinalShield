@@ -18,9 +18,9 @@ Simulating brute-force attack (40 requests to http://localhost:8080)...
 [16] ALLOWED (HTTP 200)
 [17] ALLOWED (HTTP 200)
 [18] ALLOWED (HTTP 200)
-[19] BLOCKED (HTTP 429)
-[20] BLOCKED (HTTP 429)
-[21] BLOCKED (HTTP 429)
+[19] ALLOWED (HTTP 200)
+[20] ALLOWED (HTTP 200)
+[21] ALLOWED (HTTP 200)
 [22] BLOCKED (HTTP 429)
 [23] BLOCKED (HTTP 429)
 [24] BLOCKED (HTTP 429)
@@ -29,10 +29,10 @@ Simulating brute-force attack (40 requests to http://localhost:8080)...
 [27] BLOCKED (HTTP 429)
 [28] BLOCKED (HTTP 429)
 [29] BLOCKED (HTTP 429)
-[30] BLOCKED (HTTP 429)
+[30] ALLOWED (HTTP 200)
 [31] BLOCKED (HTTP 429)
 [32] BLOCKED (HTTP 429)
-[33] ALLOWED (HTTP 200)
+[33] BLOCKED (HTTP 429)
 [34] BLOCKED (HTTP 429)
 [35] BLOCKED (HTTP 429)
 [36] BLOCKED (HTTP 429)
@@ -42,9 +42,9 @@ Simulating brute-force attack (40 requests to http://localhost:8080)...
 [40] BLOCKED (HTTP 429)
 
 Results:
-  Allowed: 19
-  Blocked: 21
+  Allowed: 22
+  Blocked: 18
 
-Rate limiter triggered after 19 requests.
+Rate limiter triggered after 22 requests.
 Check the log for RateLimitExceeded events:
   grep -c 'RateLimitExceeded' sentinel-shield.log

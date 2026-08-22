@@ -1,31 +1,31 @@
 # SentinelShield Security Report
 
-- **Total requests:** 40
-- **Blocked/detected:** 28
+- **Total requests:** 30
+- **Blocked/detected:** 18
 
 ## Attack Distribution
 
 | Attack Type | Count |
 |------------|-------|
-| RateLimitExceeded | 28 |
+| RateLimitExceeded | 18 |
 
 ## Top IPs
 
 | IP | Requests |
 |----|----------|
-| 127.0.0.1 | 68 |
+| 127.0.0.1 | 48 |
 
 ## Recent Security Events
 
 | Time | IP | Type | Rule |
 |------|----|------|------|
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
-| 13:12:45 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:35 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:35 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:35 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:35 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:36 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:36 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:36 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:36 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:36 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:07:36 | 127.0.0.1 | RateLimitExceeded | Rate limit exceeded |

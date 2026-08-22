@@ -1,37 +1,37 @@
 # SentinelShield Security Report
 
-- **Total requests:** 50
-- **Blocked/detected:** 94
+- **Total requests:** 88
+- **Blocked/detected:** 91
 
 ## Attack Distribution
 
 | Attack Type | Count |
 |------------|-------|
-| AttackDetected | 30 |
-| command_injection | 17 |
+| RateLimitExceeded | 31 |
+| AttackDetected | 20 |
 | sqli | 11 |
-| lfi | 11 |
-| path_traversal | 9 |
-| xss | 8 |
+| lfi | 8 |
 | ssrf | 8 |
+| xss | 7 |
+| path_traversal | 6 |
 
 ## Top IPs
 
 | IP | Requests |
 |----|----------|
-| 192.168.65.1 | 144 |
+| 172.19.0.1 | 179 |
 
 ## Recent Security Events
 
 | Time | IP | Type | Rule |
 |------|----|------|------|
-| 13:12:35 | 192.168.65.1 | xss | XSS-006 |
-| 13:12:35 | 192.168.65.1 | AttackDetected | command_injection: CMD-004 |
-| 13:12:35 | 192.168.65.1 | command_injection | CMD-003 |
-| 13:12:35 | 192.168.65.1 | command_injection | CMD-004 |
-| 13:12:35 | 192.168.65.1 | AttackDetected | command_injection: CMD-003 |
-| 13:12:35 | 192.168.65.1 | command_injection | CMD-003 |
-| 13:12:35 | 192.168.65.1 | command_injection | CMD-004 |
-| 13:12:35 | 192.168.65.1 | AttackDetected | command_injection: CMD-003 |
-| 13:12:35 | 192.168.65.1 | command_injection | CMD-002 |
-| 13:12:35 | 192.168.65.1 | AttackDetected | command_injection: CMD-002 |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:53 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:54 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:54 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |
+| 11:08:54 | 172.19.0.1 | RateLimitExceeded | Rate limit exceeded |

